@@ -13,9 +13,6 @@ class HaloOglasiNekretnineSpider(scrapy.Spider):
     name = "halooglasi"
     allowed_domains = ["www.halooglasi.com"]
     start_urls = ["https://www.halooglasi.com/nekretnine/prodaja-stanova/beograd"]
-    # start_urls = [
-    #     "https://www.halooglasi.com/nekretnine/prodaja-stanova/bw-aria---13---beograd-na-vodi/5425644582231?kid=4"
-    # ]
     is_paginating = False
 
     def parse(self, response):
@@ -28,7 +25,6 @@ class HaloOglasiNekretnineSpider(scrapy.Spider):
                 callback=self.parse_phonenumber,
                 meta=dict(short_description=short_description),
             )
-            break
 
     #     # paginate
     #     total_pages = 0

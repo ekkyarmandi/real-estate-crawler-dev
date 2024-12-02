@@ -9,6 +9,8 @@ from itemadapter import ItemAdapter
 from decouple import config
 import dj_database_url
 import psycopg2
+import uuid
+import json
 
 
 class PostgreSQLConnection:
@@ -40,8 +42,15 @@ class ListingPipeline:
         self.db = PostgreSQLConnection()
 
     def process_item(self, item, spider):
+        # query the existing listing by url
+        q = "SELECT * FROM listings_listing WHERE url='{}';".format(item["url"])
+        self.db.cursor.execute(q)
+        existing_listing = self.db.cursor.fetchone()
+        if existing_listing:
+            item["listing_id"] = existing_listing[2]
         # construct listing data
         listing_item = dict(
+            listing_id=item["listing_id"],
             source_id=item["source_id"],
             url=item["url"],
             title=item["title"],
@@ -84,7 +93,7 @@ class ListingPipeline:
             latitude,
             longitude
         ) VALUES (
-            uuid_generate_v4(),
+            %(listing_id)s,
             %(source_id)s,
             %(url)s,
             %(title)s,
@@ -105,14 +114,14 @@ class ListingPipeline:
             %(micro_location)s,
             %(latitude)s,
             %(longitude)s
-        );
+        ) ON CONFLICT DO NOTHING;
         """
         try:
             self.db.cursor.execute(q, listing_item)
             self.db.conn.commit()
         except Exception as err:
-            print("Error inserting listing: {0}".format(err))
             self.db.conn.rollback()
+            raise ValueError("Error on listing insertion: {0}".format(err))
         return item
 
 
@@ -121,6 +130,94 @@ class RawDataPipeline:
         self.db = PostgreSQLConnection()
 
     def process_item(self, item, spider):
+        # construct raw data item
+        raw_data_item = dict(
+            listing_id=item["listing_id"],
+            reponse_time=item["elapsed_time"],
+            html=item["raw_data"]["html"],
+            data=json.dumps(item["raw_data"]["data"]),
+        )
+        # write the insert query
+        q = """
+        INSERT INTO listings_rawdata (
+            id,
+            created_at,
+            updated_at,
+            listing_id,
+            reponse_time,
+            html,
+            data
+        ) VALUES (
+            uuid_generate_v4(),
+            now(),
+            now(),
+            %(listing_id)s,
+            %(reponse_time)s,
+            %(html)s,
+            %(data)s
+        )
+        """
+        # execute the query
+        try:
+            self.db.cursor.execute(q, raw_data_item)
+            self.db.conn.commit()
+        except Exception as err:
+            self.db.conn.rollback()
+            raise ValueError("Error on raw data insertion: {0}".format(err))
+        return item
+
+
+class PropertyPipeline:
+    def __init__(self):
+        self.db = PostgreSQLConnection()
+
+    def process_item(self, item, spider):
+        # construct property item
+        property_item = dict(
+            listing_id=item["listing_id"],
+            property_type=item["property"]["property_type"],
+            building_type=item["property"]["building_type"],
+            size_m2=item["property"]["size_m2"],
+            floor_number=item["property"]["floor_number"],
+            total_floors=item["property"]["total_floors"],
+            rooms=item["property"]["rooms"],
+            property_state=item["property"]["property_state"],
+        )
+        # write the insert query
+        q = """
+        INSERT INTO listings_property (
+            id,
+            created_at,
+            updated_at,
+            listing_id,
+            property_type,
+            building_type,
+            size_m2,
+            floor_number,
+            total_floors,
+            rooms,
+            property_state
+        ) VALUES (
+            uuid_generate_v4(),
+            now(),
+            now(),
+            %(listing_id)s,
+            %(property_type)s,
+            %(building_type)s,
+            %(size_m2)s,
+            %(floor_number)s,
+            %(total_floors)s,
+            %(rooms)s,
+            %(property_state)s
+        ) ON CONFLICT DO NOTHING;
+        """
+        # execute query
+        try:
+            self.db.cursor.execute(q, property_item)
+            self.db.conn.commit()
+        except Exception as err:
+            self.db.conn.rollback()
+            raise ValueError("Error on property insertion: {0}".format(err))
         return item
 
 
@@ -129,6 +226,42 @@ class ImagesPipeline:
         self.db = PostgreSQLConnection()
 
     def process_item(self, item, spider):
+        # construct image items
+        image_items = []
+        images = item["images"]
+        for i, image_url in enumerate(images):
+            image_items.append(
+                (
+                    item["listing_id"],
+                    image_url,
+                    i + 1,
+                )
+            )
+        # write the insert query
+        q = """
+        INSERT INTO listings_image (
+            id,
+            created_at,
+            updated_at,
+            listing_id,
+            url,
+            sequence_number
+        ) VALUES (
+            uuid_generate_v4(),
+            now(),
+            now(),
+            %s,
+            %s,
+            %s
+        ) ON CONFLICT DO NOTHING;
+        """
+        # execute query
+        try:
+            self.db.cursor.executemany(q, image_items)
+            self.db.conn.commit()
+        except Exception as err:
+            self.db.conn.rollback()
+            raise ValueError("Error on images insertion: {0}".format(err))
         return item
 
 
@@ -137,6 +270,47 @@ class SourcesPipeline:
         self.db = PostgreSQLConnection()
 
     def process_item(self, item, spider):
+        # query existing source
+        q = "SELECT id,base_url FROM listings_source WHERE base_url='{}';".format(
+            item["source"]["base_url"]
+        )
+        self.db.cursor.execute(q)
+        existing_source = self.db.cursor.fetchone()
+        if existing_source:
+            item["source"]["id"] = str(existing_source[0])
+            return item
+        # construct source item
+        source_item = dict(
+            id=item["source"]["id"],
+            name=item["source"]["name"],
+            base_url=item["source"]["base_url"],
+            scraper_config=json.dumps({}),
+        )
+        # write the insertion query
+        q = """
+        INSERT INTO listings_source (
+            id,
+            created_at,
+            updated_at,
+            name,
+            base_url,
+            scraper_config
+        ) VALUES (
+            %(id)s,
+            now(),
+            now(),
+            %(name)s,
+            %(base_url)s,
+            %(scraper_config)s
+        ) ON CONFLICT DO NOTHING;
+        """
+        # execute query
+        try:
+            self.db.cursor.execute(q, source_item)
+            self.db.conn.commit()
+        except Exception as err:
+            self.db.conn.rollback()
+            raise ValueError("Error on sources insertion: {0}".format(err))
         return item
 
 
@@ -145,6 +319,50 @@ class SellersPipeline:
         self.db = PostgreSQLConnection()
 
     def process_item(self, item, spider):
+        # construct seller item
+        seller_item = dict(
+            source_id=item["source"]["id"],
+            source_seller_id=item["seller"]["source_seller_id"],
+            name=item["seller"]["name"],
+            seller_type=item["seller"]["seller_type"],
+            primary_phone=item["seller"]["primary_phone"],
+            primary_email=item["seller"]["primary_email"],
+            website=item["seller"]["website"],
+        )
+        # write the insertion query
+        q = """
+        INSERT INTO listings_seller (
+            id,
+            created_at,
+            updated_at,
+            source_id,
+            source_seller_id,
+            name,
+            seller_type,
+            primary_phone,
+            primary_email,
+            website
+        ) VALUES (
+            uuid_generate_v4(),
+            now(),
+            now(),
+            %(source_id)s,
+            %(source_seller_id)s,
+            %(name)s,
+            %(seller_type)s,
+            %(primary_phone)s,
+            %(primary_email)s,
+            %(website)s
+        ) ON CONFLICT DO NOTHING;
+        """
+        # execute query
+        try:
+            self.db.cursor.execute(q, seller_item)
+            self.db.conn.commit()
+        except Exception as err:
+            self.db.conn.rollback()
+            raise ValueError("Error on seller insertion: {0}".format(err))
+        item.pop("raw_data")
         return item
 
 
@@ -153,4 +371,7 @@ class ListingChangePipeline:
         self.db = PostgreSQLConnection()
 
     def process_item(self, item, spider):
+        # construct listing change item
+        # write the insertion query
+        # execute query
         return item

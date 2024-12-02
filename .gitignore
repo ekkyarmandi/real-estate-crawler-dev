@@ -1,1 +1,16 @@
-.venv/
+# files to ignore
+.DS_Store
+.env
+.project
+__pycache__/
+data_scraper/*.json
+dev.py
+*.txt
+output.zip
+
+# dirs to ignore
+**/.venv/
+**/Scripts/
+**/.dbeaver/
+**/.ropeproject/
+**/.vscode/

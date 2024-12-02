@@ -29,7 +29,7 @@ class Listing(TimestampedMixin, models.Model):
 
 class RawData(TimestampedMixin, models.Model):
     id = models.UUIDField(primary_key=True)
-    listing_id = models.ForeignKey(Listing, on_delete=models.CASCADE, null=True)
+    listing = models.ForeignKey(Listing, on_delete=models.CASCADE, null=True)
     reponse_time = models.FloatField(null=True)
     html = models.TextField()
     data = models.TextField()
@@ -37,13 +37,13 @@ class RawData(TimestampedMixin, models.Model):
 
 class Property(TimestampedMixin, models.Model):
     id = models.UUIDField(primary_key=True)
-    listing_id = models.ForeignKey(Listing, on_delete=models.CASCADE)
+    listing = models.ForeignKey(Listing, on_delete=models.CASCADE)
     property_type = models.CharField(max_length=255)
     building_type = models.CharField(max_length=255)
     size_m2 = models.IntegerField()
     floor_number = models.IntegerField()
     total_floors = models.IntegerField()
-    rooms = models.IntegerField()
+    rooms = models.FloatField()
     property_state = models.CharField(max_length=255)
 
     class Meta:
@@ -53,7 +53,7 @@ class Property(TimestampedMixin, models.Model):
 
 class Image(TimestampedMixin, models.Model):
     id = models.UUIDField(primary_key=True)
-    listing_id = models.ForeignKey(Listing, on_delete=models.CASCADE)
+    listing = models.ForeignKey(Listing, on_delete=models.CASCADE)
     url = models.CharField()
     sequence_number = models.IntegerField()
 
@@ -61,25 +61,25 @@ class Image(TimestampedMixin, models.Model):
 class Source(TimestampedMixin, models.Model):
     id = models.UUIDField(primary_key=True)
     name = models.CharField(max_length=255)
-    base_url = models.CharField(max_length=255)
+    base_url = models.CharField(max_length=255, unique=True)
     scraper_config = models.TextField()
 
 
 class Seller(TimestampedMixin, models.Model):
     id = models.UUIDField(primary_key=True)
-    source_id = models.ForeignKey(Source, on_delete=models.SET_NULL, null=True)
-    seller_id = models.CharField(max_length=255)
+    source = models.ForeignKey(Source, on_delete=models.SET_NULL, null=True)
+    source_seller_id = models.CharField(max_length=255)
     name = models.CharField(max_length=255)
     seller_type = models.CharField(max_length=255)
-    primary_phone = models.CharField(max_length=255)
-    primary_email = models.CharField(max_length=255)
-    website = models.CharField(max_length=255)
+    primary_phone = models.CharField(max_length=255, null=True)
+    primary_email = models.CharField(max_length=255, null=True)
+    website = models.CharField(max_length=255, null=True)
 
 
 class ListingChange(TimestampedMixin, models.Model):
     id = models.UUIDField(primary_key=True)
-    listing_id = models.ForeignKey(Listing, on_delete=models.CASCADE)
-    raw_data_id = models.ForeignKey(RawData, on_delete=models.SET_NULL, null=True)
+    listing = models.ForeignKey(Listing, on_delete=models.CASCADE)
+    raw_data = models.ForeignKey(RawData, on_delete=models.SET_NULL, null=True)
     change_type = models.CharField(max_length=255)
     field = models.CharField(max_length=255)
     old_value = models.TextField()

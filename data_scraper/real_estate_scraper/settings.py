@@ -63,9 +63,13 @@ ROBOTSTXT_OBEY = False
 # Configure item pipelines
 # See https://docs.scrapy.org/en/latest/topics/item-pipeline.html
 ITEM_PIPELINES = {
-    # "real_estate_scraper.pipelines.ListingPipeline": 100,
-    # "real_estate_scraper.pipelines.RawDataPipeline": 100,
-    # "real_estate_scraper.pipelines.SourcesPipeline": 200,
+    "real_estate_scraper.pipelines.ListingPipeline": 100,
+    "real_estate_scraper.pipelines.RawDataPipeline": 200,
+    "real_estate_scraper.pipelines.PropertyPipeline": 300,
+    "real_estate_scraper.pipelines.ImagesPipeline": 400,
+    "real_estate_scraper.pipelines.SourcesPipeline": 500,
+    "real_estate_scraper.pipelines.SellersPipeline": 800,
+    # "real_estate_scraper.pipelines.ListingChangePipeline": 700,
 }
 
 # Enable and configure the AutoThrottle extension (disabled by default)

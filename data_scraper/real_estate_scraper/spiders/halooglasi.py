@@ -25,9 +25,10 @@ class HaloOglasiNekretnineSpider(scrapy.Spider):
             short_description = el.css("p.short-desc::text").get()
             yield response.follow(
                 response.urljoin(url),
-                callback=self.parse_example,
-                meta={"short_description": short_description},
+                callback=self.parse_phonenumber,
+                meta=dict(short_description=short_description),
             )
+            break
 
     #     # paginate
     #     total_pages = 0
@@ -81,6 +82,8 @@ class HaloOglasiNekretnineSpider(scrapy.Spider):
                 "agency_data": agency_data,
                 "elapsed_time": elapsed_time,
                 "short_description": response.meta.get("short_description"),
+                "response_text": response.text,
+                "url": response.url,
             },
             body=json.dumps(payload),
             callback=self.parse_detail,
@@ -89,6 +92,8 @@ class HaloOglasiNekretnineSpider(scrapy.Spider):
     def parse_detail(self, response):
         elapsed_time = response.meta.get("elapsed_time")
         short_description = response.meta.get("short_description")
+        source_url = response.meta.get("url")
+        response_text = response.meta.get("response_text")
         it_has_numbers = lambda x: re.search(r"\d{3}", x)
 
         data = str(response.json())
@@ -104,6 +109,7 @@ class HaloOglasiNekretnineSpider(scrapy.Spider):
         )
 
         yield {
+            "listing_id": str(uuid.uuid4()),
             "elapsed_time": elapsed_time,
             "source_id": property_data.get("Id"),
             "title": property_data.get("Title"),
@@ -122,17 +128,20 @@ class HaloOglasiNekretnineSpider(scrapy.Spider):
             # "agency_fee_unit": property_data["OtherFields"][
             #     "agencijska_sifra_oglasa_s"
             # ],
-            "url": response.url,
+            "url": source_url,
             "raw_data": {
-                "QuidditaEnvironmyent.CurrentClassified": property_data,
-                "QuidditaEnvironment.CurrentContactData": agency_data,
+                "html": response_text,
+                "data": {
+                    "QuidditaEnvironmyent.CurrentClassified": property_data,
+                    "QuidditaEnvironment.CurrentContactData": agency_data,
+                },
             },
             ## additional data
             "property": {
                 "property_type": jmespath.search(
                     "OtherFields.tip_nekretnine_s", property_data
                 ),
-                "bulding_type": jmespath.search(
+                "building_type": jmespath.search(
                     "OtherFields.tip_objekta_s", property_data
                 ),
                 "size_m2": jmespath.search("OtherFields.kvadratura_d", property_data),
@@ -172,8 +181,9 @@ class HaloOglasiNekretnineSpider(scrapy.Spider):
                 "longitude": float(geolocation.split(",")[1]),
             },
             "source": {
+                "id": str(uuid.uuid4()),
                 "name": "Halo Oglasi Nekretnine",
-                "website": "www.halooglasi.com",
+                "base_url": "https://www.halooglasi.com",
             },
             "seller": {
                 "source_seller_id": property_data.get("AdvertiserId"),
@@ -186,7 +196,7 @@ class HaloOglasiNekretnineSpider(scrapy.Spider):
                 # "tax_id": None,
                 "primary_phone": phonenumber,
                 "primary_email": None,
-                # "website": agency_data["WebAddress"],
+                "website": agency_data["WebAddress"],
                 # "verified": None,
                 # "rating": None,
                 # "total_listings": None,

@@ -39,12 +39,12 @@ class Property(TimestampedMixin, models.Model):
     id = models.UUIDField(primary_key=True)
     listing = models.ForeignKey(Listing, on_delete=models.CASCADE)
     property_type = models.CharField(max_length=255)
-    building_type = models.CharField(max_length=255)
+    building_type = models.CharField(max_length=255, null=True)
     size_m2 = models.IntegerField()
-    floor_number = models.IntegerField()
-    total_floors = models.IntegerField()
-    rooms = models.FloatField()
-    property_state = models.CharField(max_length=255)
+    floor_number = models.IntegerField(null=True)
+    total_floors = models.IntegerField(null=True)
+    rooms = models.FloatField(null=True)
+    property_state = models.CharField(max_length=255, null=True)
 
     class Meta:
         verbose_name = "Property"
@@ -82,6 +82,6 @@ class ListingChange(TimestampedMixin, models.Model):
     raw_data = models.ForeignKey(RawData, on_delete=models.SET_NULL, null=True)
     change_type = models.CharField(max_length=255)
     field = models.CharField(max_length=255)
-    old_value = models.TextField()
-    new_value = models.TextField()
+    old_value = models.TextField(null=True)
+    new_value = models.TextField(null=True)
     changed_at = models.DateTimeField()

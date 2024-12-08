@@ -33,6 +33,9 @@ class RawData(TimestampedMixin, models.Model):
     reponse_time = models.FloatField(null=True)
     html = models.TextField()
     data = models.TextField()
+    # source
+    # total_pages
+    # total_listings
 
 
 class Property(TimestampedMixin, models.Model):
@@ -40,7 +43,7 @@ class Property(TimestampedMixin, models.Model):
     listing = models.ForeignKey(Listing, on_delete=models.CASCADE)
     property_type = models.CharField(max_length=255)
     building_type = models.CharField(max_length=255, null=True)
-    size_m2 = models.IntegerField()
+    size_m2 = models.FloatField()
     floor_number = models.IntegerField(null=True)
     total_floors = models.IntegerField(null=True)
     rooms = models.FloatField(null=True)

@@ -64,13 +64,14 @@ ROBOTSTXT_OBEY = False
 # See https://docs.scrapy.org/en/latest/topics/item-pipeline.html
 ITEM_PIPELINES = {
     "real_estate_scraper.test_pipelines.TestOutputStructurePipeline": 50,
+    # "real_estate_scraper.local_pipelines.PropertyPipeline": 100,
     "real_estate_scraper.pipelines.ListingPipeline": 100,
     "real_estate_scraper.pipelines.RawDataPipeline": 200,
     "real_estate_scraper.pipelines.PropertyPipeline": 300,
     "real_estate_scraper.pipelines.ImagesPipeline": 400,
     "real_estate_scraper.pipelines.SourcesPipeline": 500,
-    "real_estate_scraper.pipelines.SellersPipeline": 800,
-    "real_estate_scraper.pipelines.ListingChangePipeline": 900,
+    "real_estate_scraper.pipelines.SellersPipeline": 600,
+    "real_estate_scraper.pipelines.ListingChangePipeline": 700,
 }
 
 # Enable and configure the AutoThrottle extension (disabled by default)
@@ -98,3 +99,13 @@ ITEM_PIPELINES = {
 REQUEST_FINGERPRINTER_IMPLEMENTATION = "2.7"
 TWISTED_REACTOR = "twisted.internet.asyncioreactor.AsyncioSelectorReactor"
 FEED_EXPORT_ENCODING = "utf-8"
+
+# LOG_LEVEL = "INFO"
+# LOG_FILE = "scrapy.log"
+# LOG_SETTINGS = "logging.conf"
+
+# Hierarchical logging
+# DEBUG: Detailed diagnostic information useful for developers.
+# INFO: General operational entries about system events.
+# WARNING: Indicators of potential issues or unusual situations.
+# ERROR: Errors that affect functionality but do not stop the system.

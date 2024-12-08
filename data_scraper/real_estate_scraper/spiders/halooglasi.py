@@ -14,45 +14,40 @@ class HaloOglasiNekretnineSpider(scrapy.Spider):
     allowed_domains = ["www.halooglasi.com"]
     start_urls = ["https://www.halooglasi.com/nekretnine/prodaja-stanova/beograd"]
     is_paginating = False
+    visited_urls = []
 
     def parse(self, response):
         elements = response.css("div:has(h3.product-title)")
         for el in elements:
             url = el.css("h3.product-title a::attr(href)").get()
             short_description = el.css("p.short-desc::text").get()
-            yield response.follow(
-                response.urljoin(url),
-                callback=self.parse_phonenumber,
-                meta=dict(short_description=short_description),
-            )
+            if url not in self.visited_urls:
+                self.visited_urls.append(url)
+                yield response.follow(
+                    response.urljoin(url),
+                    callback=self.parse_phonenumber,
+                    meta=dict(short_description=short_description),
+                )
 
-    #     # paginate
-    #     total_pages = 0
-    #     total_count = 0
-    #     if not self.in_pagination:
-    #         page_source = (
-    #             response.css("script")
-    #             .xpath("//*[contains(text(), 'TotalCount')]")
-    #             .get()
-    #         )
-    #         # page_source = response.css('script').xpath("//*[contains(text(), 'TotalCount')]").get()
-    #         try:
-    #             total_count = re.search(
-    #                 r"TotalCount(.*?)(?P<total_count>\d+)", page_source
-    #             ).group("total_count")
-    #             total_count = int(total_count)
-    #             total_pages = math.ceil(total_count / 20)
-    #         except Exception as e:
-    #             print(e)
-
-    #         # if total_pages:
-    #         #     for i in range(2, total_pages + 2):
-    #         #         print(response.url + f"?page={i}")
-
-    #     yield dict(
-    #         total_pages=total_pages,
-    #         total_count=total_count,
-    #     )
+        # # paginate
+        total_pages = 0
+        total_count = 0
+        item_per_page = 20
+        if not self.is_paginating:
+            page_source = response.css("script:contains(TotalCount)").get()
+            try:
+                total_count = re.search(
+                    r"TotalCount(.*?)(?P<total_count>\d+)", page_source
+                ).group("total_count")
+                total_count = int(total_count)
+                total_pages = math.ceil(total_count / item_per_page)
+                if total_pages:
+                    self.in_pagination = True
+                    for i in range(2, total_pages + 1):
+                        next_url = response.url.split("?")[0] + "?page=" + str(i)
+                        yield response.follow(next_url, callback=self.parse)
+            except Exception as e:
+                total_count = 0
 
     def parse_phonenumber(self, response):
         elapsed_time = response.meta.get("download_latency")

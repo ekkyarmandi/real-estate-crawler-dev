@@ -6,11 +6,16 @@
 
 # useful for handling different item types with a single interface
 from itemadapter import ItemAdapter
+from scrapy.exceptions import DropItem
 from datetime import datetime as dt
 from decouple import config
 import dj_database_url
 import psycopg2
 import json
+
+
+def keep_url_only(item):
+    return dict(url=item.get("url", "URL not exists"))
 
 
 class PostgreSQLConnection:
@@ -121,7 +126,7 @@ class ListingPipeline:
             self.db.conn.commit()
         except Exception as err:
             self.db.conn.rollback()
-            raise ValueError("Error on listing insertion: {0}".format(err))
+            raise DropItem("Listing insertion failed: {0}".format(err))
 
         return item
 
@@ -156,7 +161,7 @@ class RawDataPipeline:
             %(reponse_time)s,
             %(html)s,
             %(data)s
-        )
+        );
         """
         # execute the query
         try:
@@ -164,7 +169,7 @@ class RawDataPipeline:
             self.db.conn.commit()
         except Exception as err:
             self.db.conn.rollback()
-            raise ValueError("Error on raw data insertion: {0}".format(err))
+            raise ValueError("Raw data insertion failed: {0}".format(err))
         return item
 
 
@@ -192,7 +197,7 @@ class PropertyPipeline:
         ]
         for col in columns:
             value = property_item[col]
-            if value and "+" in value:
+            if isinstance(value, str) and "+" in value:
                 property_item[col] = value.replace("+", "")
         # write the insert query
         q = """
@@ -228,7 +233,7 @@ class PropertyPipeline:
             self.db.conn.commit()
         except Exception as err:
             self.db.conn.rollback()
-            raise ValueError("Error on property insertion: {0}".format(err))
+            raise DropItem("Error on property insertion: {0}".format(err))
         return item
 
 
@@ -272,7 +277,7 @@ class ImagesPipeline:
             self.db.conn.commit()
         except Exception as err:
             self.db.conn.rollback()
-            raise ValueError("Error on images insertion: {0}".format(err))
+            raise ValueError("Image insertion failed: {0}".format(err))
         return item
 
 
@@ -321,7 +326,7 @@ class SourcesPipeline:
             self.db.conn.commit()
         except Exception as err:
             self.db.conn.rollback()
-            raise ValueError("Error on sources insertion: {0}".format(err))
+            raise ValueError("Source insertion failed: {0}".format(err))
         return item
 
 
@@ -375,7 +380,7 @@ class SellersPipeline:
             self.db.conn.commit()
         except Exception as err:
             self.db.conn.rollback()
-            raise ValueError("Error on seller insertion: {0}".format(err))
+            raise ValueError("Seller insertion failed: {0}".format(err))
         item.pop("raw_data")
         return item
 
@@ -388,27 +393,12 @@ class ListingChangePipeline:
         # query existing listing
         q = f"""
         SELECT
-            ll.title,
             ll.price,
-            ll.price_currency,
             ll.status,
             ll.valid_from,
             ll.valid_to,
-            ll.total_views,
-            ll.city,
-            ll.municipality,
-            ll.micro_location,
-            ll.latitude,
-            ll.longitude,
             ll.detail_description,
             ll.short_description,
-            lp.property_type,
-            lp.building_type,
-            lp.size_m2,
-            lp.floor_number,
-            lp.total_floors,
-            lp.rooms,
-            lp.property_state,
             rd.id AS raw_data_id
         FROM listings_listing ll
         JOIN listings_property lp ON lp.listing_id = ll.id
@@ -417,27 +407,12 @@ class ListingChangePipeline:
         """
         self.db.cursor.execute(q)
         columns = [
-            "title",
             "price",
-            "price_currency",
             "status",
             "valid_from",
             "valid_to",
-            "total_views",
-            "city",
-            "municipality",
-            "micro_location",
-            "latitude",
-            "longitude",
             "detail_description",
             "short_description",
-            "property_type",
-            "building_type",
-            "size_m2",
-            "floor_number",
-            "total_floors",
-            "rooms",
-            "property_state",
         ]
         listing = self.db.cursor.fetchone()
         if listing:
@@ -456,37 +431,18 @@ class ListingChangePipeline:
             except ValueError:
                 valid_to = dt.strptime(item["valid_to"], r"%Y-%m-%dT%H:%M:%SZ")
             new_listing = dict(
-                title=item["title"],
                 price=item["price"],
-                price_currency=item["price_currency"],
                 status=item["status"],
                 valid_from=valid_from.strftime(r"%Y-%m-%dT%H:%M:%S"),
                 valid_to=valid_to.strftime(r"%Y-%m-%dT%H:%M:%S"),
-                total_views=item["total_views"],
-                city=item["address"]["city"],
-                municipality=item["address"]["municipality"],
-                micro_location=item["address"]["micro_location"],
-                latitude=item["address"]["latitude"],
-                longitude=item["address"]["longitude"],
                 detail_description=item["detail_description"],
                 short_description=item["short_description"],
-                property_type=item["property"]["property_type"],
-                building_type=item["property"]["building_type"],
-                size_m2=item["property"]["size_m2"],
-                floor_number=item["property"]["floor_number"],
-                total_floors=item["property"]["total_floors"],
-                rooms=item["property"]["rooms"],
-                property_state=item["property"]["property_state"],
             )
             # check the changes
             change_items = []
-            for col in columns:
+            for col in ["price", "descriptions"]:
                 old_value = listing[col]
                 new_value = new_listing[col]
-                if col in ["floor_number", "total_floors"]:
-                    new_value = int(new_value) if new_value else 0
-                if col in ["rooms"]:
-                    new_value = float(new_value) if new_value else 0.0
                 if old_value != new_value:
                     change = dict(
                         listing_id=item["listing_id"],
@@ -533,6 +489,3 @@ class ListingChangePipeline:
                     raise ValueError(
                         "Error on listing changes insertion: {0}".format(err)
                     )
-            return new_listing
-
-        return item

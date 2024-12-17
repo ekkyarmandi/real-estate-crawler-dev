@@ -15,6 +15,7 @@ class HaloOglasiNekretnineSpider(scrapy.Spider):
     start_urls = ["https://www.halooglasi.com/nekretnine/prodaja-stanova/beograd"]
     is_paginating = False
     visited_urls = []
+    total_pages = 0
 
     def parse(self, response):
         elements = response.css("div:has(h3.product-title)")
@@ -29,8 +30,7 @@ class HaloOglasiNekretnineSpider(scrapy.Spider):
                     meta=dict(short_description=short_description),
                 )
 
-        # # paginate
-        total_pages = 0
+        # paginate
         total_count = 0
         item_per_page = 20
         if not self.is_paginating:
@@ -40,12 +40,12 @@ class HaloOglasiNekretnineSpider(scrapy.Spider):
                     r"TotalCount(.*?)(?P<total_count>\d+)", page_source
                 ).group("total_count")
                 total_count = int(total_count)
-                total_pages = math.ceil(total_count / item_per_page)
-                if total_pages:
-                    self.in_pagination = True
-                    for i in range(2, total_pages + 1):
-                        next_url = response.url.split("?")[0] + "?page=" + str(i)
-                        yield response.follow(next_url, callback=self.parse)
+                self.total_pages = math.ceil(total_count / item_per_page)
+                #  if self.total_pages:
+                #      self.in_pagination = True
+                #      for i in range(2, self.total_pages + 1):
+                #          next_url = response.url.split("?")[0] + "?page=" + str(i)
+                #          yield response.follow(next_url, callback=self.parse)
             except Exception as e:
                 total_count = 0
 

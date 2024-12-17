@@ -5,7 +5,6 @@
 
 
 # useful for handling different item types with a single interface
-from itemadapter import ItemAdapter
 from scrapy.exceptions import DropItem
 from datetime import datetime as dt
 from decouple import config
@@ -77,6 +76,10 @@ class ListingPipeline:
         q = """
         INSERT INTO listings_listing (
             id,
+            created_at,
+            updated_at,
+            first_seen_at,
+            last_seen_at,
             source_id,
             url,
             title,
@@ -85,10 +88,6 @@ class ListingPipeline:
             price,
             price_currency,
             status,
-            created_at,
-            updated_at,
-            first_seen_at,
-            last_seen_at,
             valid_from,
             valid_to,
             total_views,
@@ -99,6 +98,10 @@ class ListingPipeline:
             longitude
         ) VALUES (
             %(listing_id)s,
+            now(),
+            now(),
+            now(),
+            now(),
             %(source_id)s,
             %(url)s,
             %(title)s,
@@ -107,10 +110,6 @@ class ListingPipeline:
             %(price)s,
             %(price_currency)s,
             %(status)s,
-            now(),
-            now(),
-            now(),
-            now(),
             %(valid_from)s,
             %(valid_to)s,
             %(total_views)s,
@@ -130,6 +129,49 @@ class ListingPipeline:
 
         return item
 
+    def close_spider(self, spider):
+        # Access total_pages from the spider
+        total_pages = getattr(spider, "total_pages", 0)
+        total_listings = len(getattr(spider, "visited_urls", []))
+
+        # get spider stats
+        stats = spider.crawler.stats.get_stats()
+        # create spider report
+        start_time = stats.get("start_time", 0)
+        elapsed_time = dt.now(start_time.tzinfo) - start_time
+        report_item = dict(
+            total_pages=total_pages,  # Use the total_pages from the spider
+            total_listings=total_listings,
+            item_scraped_count=stats.get("item_scraped_count", 0),
+            item_dropped_count=stats.get("item_dropped_count", 0),
+            response_error_count=stats.get("log_count/ERROR", 0),
+            elapsed_time_seconds=elapsed_time.total_seconds(),
+        )
+        q = """
+        INSERT INTO listings_report (
+            id, created_at, updated_at,
+            total_pages,
+            total_listings,
+            item_scraped_count,
+            item_dropped_count,
+            response_error_count,
+            elapsed_time_seconds
+        ) VALUES (
+            uuid_generate_v4(), now(), now(),
+            %(total_pages)s,
+            %(total_listings)s,
+            %(item_scraped_count)s,
+            %(item_dropped_count)s,
+            %(response_error_count)s,
+            %(elapsed_time_seconds)s
+        );
+        """
+        try:
+            self.db.cursor.execute(q, report_item)
+            self.db.conn.commit()
+        except Exception as err:
+            self.db.conn.rollback()
+
 
 class RawDataPipeline:
     def __init__(self):
@@ -146,19 +188,13 @@ class RawDataPipeline:
         # write the insert query
         q = """
         INSERT INTO listings_rawdata (
-            id,
-            created_at,
-            updated_at,
+            id, created_at, updated_at,
             listing_id,
-            reponse_time,
             html,
             data
         ) VALUES (
-            uuid_generate_v4(),
-            now(),
-            now(),
+            uuid_generate_v4(), now(), now(),
             %(listing_id)s,
-            %(reponse_time)s,
             %(html)s,
             %(data)s
         );
@@ -202,9 +238,7 @@ class PropertyPipeline:
         # write the insert query
         q = """
         INSERT INTO listings_property (
-            id,
-            created_at,
-            updated_at,
+            id, created_at, updated_at,
             listing_id,
             property_type,
             building_type,
@@ -214,9 +248,7 @@ class PropertyPipeline:
             rooms,
             property_state
         ) VALUES (
-            uuid_generate_v4(),
-            now(),
-            now(),
+            uuid_generate_v4(), now(), now(),
             %(listing_id)s,
             %(property_type)s,
             %(building_type)s,
@@ -250,22 +282,21 @@ class ImagesPipeline:
                 (
                     item["listing_id"],
                     image_url,
+                    image_url,
                     i + 1,
                 )
             )
         # write the insert query
         q = """
         INSERT INTO listings_image (
-            id,
-            created_at,
-            updated_at,
+            id, created_at, updated_at,
             listing_id,
+            source_url,
             url,
             sequence_number
         ) VALUES (
-            uuid_generate_v4(),
-            now(),
-            now(),
+            uuid_generate_v4(), now(), now(),
+            %s,
             %s,
             %s,
             %s
@@ -305,16 +336,12 @@ class SourcesPipeline:
         # write the insertion query
         q = """
         INSERT INTO listings_source (
-            id,
-            created_at,
-            updated_at,
+            id, created_at, updated_at,
             name,
             base_url,
             scraper_config
         ) VALUES (
-            %(id)s,
-            now(),
-            now(),
+            %(id)s, now(), now(),
             %(name)s,
             %(base_url)s,
             %(scraper_config)s
@@ -351,9 +378,7 @@ class SellersPipeline:
         # write the insertion query
         q = """
         INSERT INTO listings_seller (
-            id,
-            created_at,
-            updated_at,
+            id, created_at, updated_at,
             source_id,
             source_seller_id,
             name,
@@ -362,9 +387,7 @@ class SellersPipeline:
             primary_email,
             website
         ) VALUES (
-            uuid_generate_v4(),
-            now(),
-            now(),
+            uuid_generate_v4(), now(), now(),
             %(source_id)s,
             %(source_seller_id)s,
             %(name)s,
@@ -440,7 +463,7 @@ class ListingChangePipeline:
             )
             # check the changes
             change_items = []
-            for col in ["price", "descriptions"]:
+            for col in ["price", "short_description", "detail_description"]:
                 old_value = listing[col]
                 new_value = new_listing[col]
                 if old_value != new_value:
@@ -457,9 +480,7 @@ class ListingChangePipeline:
                 # execute query
                 q = """
                 INSERT INTO listings_listingchange (
-                    id,
-                    created_at,
-                    updated_at,
+                    id, created_at, updated_at,
                     listing_id,
                     raw_data_id,
                     change_type,
@@ -468,9 +489,7 @@ class ListingChangePipeline:
                     new_value,
                     changed_at
                 ) VALUES (
-                    uuid_generate_v4(),
-                    now(),
-                    now(),
+                    uuid_generate_v4(), now(), now(),
                     %s,
                     %s,
                     %s,

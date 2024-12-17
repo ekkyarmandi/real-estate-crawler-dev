@@ -30,12 +30,8 @@ class Listing(TimestampedMixin, models.Model):
 class RawData(TimestampedMixin, models.Model):
     id = models.UUIDField(primary_key=True)
     listing = models.ForeignKey(Listing, on_delete=models.CASCADE, null=True)
-    reponse_time = models.FloatField(null=True)
     html = models.TextField()
     data = models.TextField()
-    # source
-    # total_pages
-    # total_listings
 
 
 class Property(TimestampedMixin, models.Model):
@@ -57,7 +53,8 @@ class Property(TimestampedMixin, models.Model):
 class Image(TimestampedMixin, models.Model):
     id = models.UUIDField(primary_key=True)
     listing = models.ForeignKey(Listing, on_delete=models.CASCADE)
-    url = models.CharField()
+    source_url = models.CharField(default="")
+    url = models.CharField(default="")
     sequence_number = models.IntegerField()
 
 
@@ -88,3 +85,13 @@ class ListingChange(TimestampedMixin, models.Model):
     old_value = models.TextField(null=True)
     new_value = models.TextField(null=True)
     changed_at = models.DateTimeField()
+
+
+class Report(TimestampedMixin, models.Model):
+    id = models.UUIDField(primary_key=True)
+    total_pages = models.IntegerField()
+    total_listings = models.IntegerField()
+    item_scraped_count = models.IntegerField()
+    item_dropped_count = models.IntegerField()
+    response_error_count = models.IntegerField()
+    elapsed_time_seconds = models.FloatField(default=0)

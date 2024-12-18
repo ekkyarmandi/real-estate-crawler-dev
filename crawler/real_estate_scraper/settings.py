@@ -48,12 +48,6 @@ ROBOTSTXT_OBEY = False
 #    "real_estate_scraper.middlewares.DataScraperSpiderMiddleware": 543,
 # }
 
-# Enable or disable downloader middlewares
-# See https://docs.scrapy.org/en/latest/topics/downloader-middleware.html
-# DOWNLOADER_MIDDLEWARES = {
-#     "real_estate_scraper.middlewares.DataScraperDownloaderMiddleware": 100,
-# }
-
 # Enable or disable extensions
 # See https://docs.scrapy.org/en/latest/topics/extensions.html
 # EXTENSIONS = {
@@ -95,12 +89,38 @@ ITEM_PIPELINES = {
 # HTTPCACHE_IGNORE_HTTP_CODES = []
 # HTTPCACHE_STORAGE = "scrapy.extensions.httpcache.FilesystemCacheStorage"
 
+# Enable or disable downloader middlewares
+# See https://docs.scrapy.org/en/latest/topics/downloader-middleware.html
+DOWNLOADER_MIDDLEWARES = {
+    # "props.middlewares.PropertiesDownloaderMiddleware": 543,
+    # "scrapy.downloadermiddlewares.retry.RetryMiddleware": 90,
+    # "scrapy_proxies.RandomProxy": 100,
+    # "scrapy.downloadermiddlewares.httpproxy.HttpProxyMiddleware": 110,
+}
+# See scrapy-proxies docs https://github.com/aivarsk/scrapy-proxies
+PROXY_LIST = "proxies.txt"
+
+# Proxy mode
+# 0 = Every requests have different proxy
+# 1 = Take only one proxy from the list and assign it to every requests
+# 2 = Put a custom proxy to use in the settings
+PROXY_MODE = 2
+
+# If proxy mode is 2 uncomment this sentence :
+CUSTOM_PROXY = ""
+
+# Retry many times since proxies often fail
+RETRY_TIMES = 10
+
+# Retry on most error codes since proxies fail for different reasons
+RETRY_HTTP_CODES = [500, 503, 504, 400, 403, 404, 408]
+
 # Set settings whose default value is deprecated to a future-proof value
 REQUEST_FINGERPRINTER_IMPLEMENTATION = "2.7"
 TWISTED_REACTOR = "twisted.internet.asyncioreactor.AsyncioSelectorReactor"
 FEED_EXPORT_ENCODING = "utf-8"
 
-# LOG_LEVEL = "INFO"
+# LOG_LEVEL = "ERROR"
 # LOG_FILE = "scrapy.log"
 # LOG_SETTINGS = "logging.conf"
 

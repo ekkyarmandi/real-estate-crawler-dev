@@ -14,8 +14,8 @@ class Listing(TimestampedMixin, models.Model):
     status = models.CharField(max_length=255)
     first_seen_at = models.DateTimeField()
     last_seen_at = models.DateTimeField()
-    valid_from = models.DateTimeField()
-    valid_to = models.DateTimeField()
+    valid_from = models.DateTimeField(null=True)
+    valid_to = models.DateTimeField(null=True)
     total_views = models.IntegerField()
     city = models.CharField(max_length=255)
     municipality = models.CharField(max_length=255)
@@ -57,6 +57,13 @@ class Image(TimestampedMixin, models.Model):
     url = models.CharField(default="")
     sequence_number = models.IntegerField()
 
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["url", "listing"], name="unique_url_listing"
+            )
+        ]
+
 
 class Source(TimestampedMixin, models.Model):
     id = models.UUIDField(primary_key=True)
@@ -95,3 +102,19 @@ class Report(TimestampedMixin, models.Model):
     item_dropped_count = models.IntegerField()
     response_error_count = models.IntegerField()
     elapsed_time_seconds = models.FloatField(default=0)
+
+
+class Error(TimestampedMixin, models.Model):
+    id = models.UUIDField(primary_key=True)
+    url = models.CharField(max_length=255, default="")
+    error_type = models.CharField(max_length=255)
+    error_message = models.TextField()
+    error_traceback = models.TextField()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["url", "error_type", "error_message"],
+                name="unique_error_constraint",
+            )
+        ]

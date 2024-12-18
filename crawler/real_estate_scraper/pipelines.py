@@ -8,9 +8,14 @@
 from scrapy.exceptions import DropItem
 from datetime import datetime as dt
 from decouple import config
+from real_estate_scraper.database import get_db
+from real_estate_scraper.func import supabase_uploader
+from models.error import Error, Report
+from sqlalchemy import func
 import dj_database_url
 import psycopg2
 import json
+import traceback
 
 
 def keep_url_only(item):
@@ -125,6 +130,27 @@ class ListingPipeline:
             self.db.conn.commit()
         except Exception as err:
             self.db.conn.rollback()
+            db = next(get_db())
+            error = (
+                db.query(Error)
+                .filter(
+                    Error.url == item["url"],
+                    Error.error_type == "Listing insertion",
+                    Error.error_message == str(err),
+                )
+                .first()
+            )
+            if error:
+                error.updated_at = func.now()
+            else:
+                error = Error(
+                    url=item["url"],
+                    error_type="Listing insertion",
+                    error_message=str(err),
+                    error_traceback=traceback.format_exc(),
+                )
+                db.add(error)
+            db.commit()
             raise DropItem("Listing insertion failed: {0}".format(err))
 
         return item
@@ -133,7 +159,6 @@ class ListingPipeline:
         # Access total_pages from the spider
         total_pages = getattr(spider, "total_pages", 0)
         total_listings = len(getattr(spider, "visited_urls", []))
-
         # get spider stats
         stats = spider.crawler.stats.get_stats()
         # create spider report
@@ -147,30 +172,14 @@ class ListingPipeline:
             response_error_count=stats.get("log_count/ERROR", 0),
             elapsed_time_seconds=elapsed_time.total_seconds(),
         )
-        q = """
-        INSERT INTO listings_report (
-            id, created_at, updated_at,
-            total_pages,
-            total_listings,
-            item_scraped_count,
-            item_dropped_count,
-            response_error_count,
-            elapsed_time_seconds
-        ) VALUES (
-            uuid_generate_v4(), now(), now(),
-            %(total_pages)s,
-            %(total_listings)s,
-            %(item_scraped_count)s,
-            %(item_dropped_count)s,
-            %(response_error_count)s,
-            %(elapsed_time_seconds)s
-        );
-        """
+        db = next(get_db())
         try:
-            self.db.cursor.execute(q, report_item)
-            self.db.conn.commit()
+            report = Report(**report_item)
+            db.add(report)
+            db.commit()
         except Exception as err:
-            self.db.conn.rollback()
+            db.rollback()
+            raise ValueError("Error on spider close: {0}".format(err))
 
 
 class RawDataPipeline:
@@ -265,6 +274,27 @@ class PropertyPipeline:
             self.db.conn.commit()
         except Exception as err:
             self.db.conn.rollback()
+            db = next(get_db())
+            error = (
+                db.query(Error)
+                .filter(
+                    Error.url == item["url"],
+                    Error.error_type == "Property insertion",
+                    Error.error_message == str(err),
+                )
+                .first()
+            )
+            if error:
+                error.updated_at = func.now()
+            else:
+                error = Error(
+                    url=item["url"],
+                    error_type="Property insertion",
+                    error_message=str(err),
+                    error_traceback=traceback.format_exc(),
+                )
+                db.add(error)
+            db.commit()
             raise DropItem("Error on property insertion: {0}".format(err))
         return item
 
@@ -278,6 +308,8 @@ class ImagesPipeline:
         image_items = []
         images = item["images"]
         for i, image_url in enumerate(images):
+            image_id = f"{item['listing_id']}_{i}"
+            # source_url = supabase_uploader(image_url, image_id)
             image_items.append(
                 (
                     item["listing_id"],
@@ -442,8 +474,16 @@ class ListingChangePipeline:
             raw_data_id = listing[-1]
             listing = dict(zip(columns, listing))
             listing["price"] = float(listing["price"])
-            listing["valid_from"] = listing["valid_from"].strftime(r"%Y-%m-%dT%H:%M:%S")
-            listing["valid_to"] = listing["valid_to"].strftime(r"%Y-%m-%dT%H:%M:%S")
+            if listing["valid_from"]:
+                listing["valid_from"] = listing["valid_from"].strftime(
+                    r"%Y-%m-%dT%H:%M:%S"
+                )
+            else:
+                listing["valid_from"] = None
+            if listing["valid_to"]:
+                listing["valid_to"] = listing["valid_to"].strftime(r"%Y-%m-%dT%H:%M:%S")
+            else:
+                listing["valid_to"] = None
             # construct listing change item by combining ListingItem with ListingChangeItem
             try:
                 valid_from = dt.strptime(item["valid_from"], r"%Y-%m-%dT%H:%M:%S.%fZ")
@@ -505,6 +545,27 @@ class ListingChangePipeline:
                     self.db.conn.commit()
                 except Exception as err:
                     self.db.conn.rollback()
+                    db = next(get_db())
+                    error = (
+                        db.query(Error)
+                        .filter(
+                            Error.url == item["url"],
+                            Error.error_type == "Listing change",
+                            Error.error_message == str(err),
+                        )
+                        .first()
+                    )
+                    if error:
+                        error.updated_at = func.now()
+                    else:
+                        error = Error(
+                            url=item["url"],
+                            error_type="Listing change",
+                            error_message=str(err),
+                            error_traceback=traceback.format_exc(),
+                        )
+                        db.add(error)
+                    db.commit()
                     raise ValueError(
                         "Error on listing changes insertion: {0}".format(err)
                     )

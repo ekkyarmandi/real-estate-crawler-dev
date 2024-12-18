@@ -95,9 +95,8 @@ class HaloOglasiNekretnineSpider(scrapy.Spider):
         property_data = response.meta["property_data"]
         agency_data = response.meta["agency_data"]
         geolocation = property_data["GeoLocationRPT"]
-        image_urls = list(
-            map(lambda x: response.urljoin(x), property_data.get("ImageURLs"))
-        )
+        root_url = "https://img.halooglasi.com"
+        image_urls = list(map(lambda x: root_url + x, property_data.get("ImageURLs")))
 
         yield {
             "listing_id": str(uuid.uuid4()),

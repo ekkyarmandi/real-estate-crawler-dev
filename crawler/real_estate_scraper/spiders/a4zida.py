@@ -111,7 +111,7 @@ class A4zidaSpider(scrapy.Spider):
             "status": "active",
             "valid_from": None,  # COMMENT: not sure which data point to look
             "valid_to": None,  # COMMENT: not sure which data point to look
-            "total_views": None,
+            "total_views": 0,
             "url": response.url,
             "raw_data": {
                 "html": response.text,

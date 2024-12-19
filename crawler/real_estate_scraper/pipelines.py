@@ -9,13 +9,15 @@ from scrapy.exceptions import DropItem
 from datetime import datetime as dt
 from decouple import config
 from real_estate_scraper.database import get_db
-from real_estate_scraper.func import supabase_uploader
-from models.error import Error, Report
-from sqlalchemy import func
+from models.error import Report
 import dj_database_url
 import psycopg2
 import json
 import traceback
+import jmespath
+
+from real_estate_scraper.templates.sql.listing import listing_insert_query
+from real_estate_scraper.templates.sql.error import error_insert_query
 
 
 def keep_url_only(item):
@@ -46,6 +48,51 @@ class PostgreSQLConnection:
             )
 
 
+class SourcesPipeline:
+    def __init__(self):
+        self.db = PostgreSQLConnection()
+
+    def process_item(self, item, spider):
+        # query existing source
+        q = "SELECT id,base_url FROM listings_source WHERE base_url='{}';".format(
+            item["source"]["base_url"]
+        )
+        self.db.cursor.execute(q)
+        existing_source = self.db.cursor.fetchone()
+        if existing_source:
+            item["source"]["id"] = str(existing_source[0])
+            return item
+        # construct source item
+        source_item = dict(
+            id=item["source"]["id"],
+            name=item["source"]["name"],
+            base_url=item["source"]["base_url"],
+            scraper_config=json.dumps({}),
+        )
+        # write the insertion query
+        q = """
+        INSERT INTO listings_source (
+            id, created_at, updated_at,
+            name,
+            base_url,
+            scraper_config
+        ) VALUES (
+            %(id)s, now(), now(),
+            %(name)s,
+            %(base_url)s,
+            %(scraper_config)s
+        ) ON CONFLICT DO NOTHING;
+        """
+        # execute query
+        try:
+            self.db.cursor.execute(q, source_item)
+            self.db.conn.commit()
+        except Exception as err:
+            self.db.conn.rollback()
+            raise ValueError("Source insertion failed: {0}".format(err))
+        return item
+
+
 class ListingPipeline:
     def __init__(self):
         self.db = PostgreSQLConnection()
@@ -60,7 +107,7 @@ class ListingPipeline:
         # construct listing data
         listing_item = dict(
             listing_id=item["listing_id"],
-            source_id=item["source_id"],
+            source_id=item["source"]["id"],
             url=item["url"],
             title=item["title"],
             short_description=item["short_description"],
@@ -78,79 +125,20 @@ class ListingPipeline:
             longitude=item["address"]["longitude"],
         )
         # insert value
-        q = """
-        INSERT INTO listings_listing (
-            id,
-            created_at,
-            updated_at,
-            first_seen_at,
-            last_seen_at,
-            source_id,
-            url,
-            title,
-            short_description,
-            detail_description,
-            price,
-            price_currency,
-            status,
-            valid_from,
-            valid_to,
-            total_views,
-            city,
-            municipality,
-            micro_location,
-            latitude,
-            longitude
-        ) VALUES (
-            %(listing_id)s,
-            now(),
-            now(),
-            now(),
-            now(),
-            %(source_id)s,
-            %(url)s,
-            %(title)s,
-            %(short_description)s,
-            %(detail_description)s,
-            %(price)s,
-            %(price_currency)s,
-            %(status)s,
-            %(valid_from)s,
-            %(valid_to)s,
-            %(total_views)s,
-            %(city)s,
-            %(municipality)s,
-            %(micro_location)s,
-            %(latitude)s,
-            %(longitude)s
-        ) ON CONFLICT (url) DO UPDATE SET last_seen_at = now();
-        """
         try:
-            self.db.cursor.execute(q, listing_item)
+            self.db.cursor.execute(listing_insert_query, listing_item)
             self.db.conn.commit()
         except Exception as err:
             self.db.conn.rollback()
-            db = next(get_db())
-            error = (
-                db.query(Error)
-                .filter(
-                    Error.url == item["url"],
-                    Error.error_type == "Listing insertion",
-                    Error.error_message == str(err),
-                )
-                .first()
+            # Insert error to db
+            error_item = dict(
+                url=item["url"],
+                error_type="Listing insertion",
+                error_message=str(err),
+                error_traceback=traceback.format_exc(),
             )
-            if error:
-                error.updated_at = func.now()
-            else:
-                error = Error(
-                    url=item["url"],
-                    error_type="Listing insertion",
-                    error_message=str(err),
-                    error_traceback=traceback.format_exc(),
-                )
-                db.add(error)
-            db.commit()
+            self.db.cursor.execute(error_insert_query, error_item)
+            self.db.conn.commit()
             raise DropItem("Listing insertion failed: {0}".format(err))
 
         return item
@@ -158,7 +146,7 @@ class ListingPipeline:
     def close_spider(self, spider):
         # Access total_pages from the spider
         total_pages = getattr(spider, "total_pages", 0)
-        total_listings = len(getattr(spider, "visited_urls", []))
+        total_listings = getattr(spider, "total_listings", 0)
         # get spider stats
         stats = spider.crawler.stats.get_stats()
         # create spider report
@@ -274,27 +262,15 @@ class PropertyPipeline:
             self.db.conn.commit()
         except Exception as err:
             self.db.conn.rollback()
-            db = next(get_db())
-            error = (
-                db.query(Error)
-                .filter(
-                    Error.url == item["url"],
-                    Error.error_type == "Property insertion",
-                    Error.error_message == str(err),
-                )
-                .first()
+            # Insert error to db
+            error_item = dict(
+                url=item["url"],
+                error_type="Property insertion",
+                error_message=str(err),
+                error_traceback=traceback.format_exc(),
             )
-            if error:
-                error.updated_at = func.now()
-            else:
-                error = Error(
-                    url=item["url"],
-                    error_type="Property insertion",
-                    error_message=str(err),
-                    error_traceback=traceback.format_exc(),
-                )
-                db.add(error)
-            db.commit()
+            self.db.cursor.execute(error_insert_query, error_item)
+            self.db.conn.commit()
             raise DropItem("Error on property insertion: {0}".format(err))
         return item
 
@@ -344,51 +320,6 @@ class ImagesPipeline:
         return item
 
 
-class SourcesPipeline:
-    def __init__(self):
-        self.db = PostgreSQLConnection()
-
-    def process_item(self, item, spider):
-        # query existing source
-        q = "SELECT id,base_url FROM listings_source WHERE base_url='{}';".format(
-            item["source"]["base_url"]
-        )
-        self.db.cursor.execute(q)
-        existing_source = self.db.cursor.fetchone()
-        if existing_source:
-            item["source"]["id"] = str(existing_source[0])
-            return item
-        # construct source item
-        source_item = dict(
-            id=item["source"]["id"],
-            name=item["source"]["name"],
-            base_url=item["source"]["base_url"],
-            scraper_config=json.dumps({}),
-        )
-        # write the insertion query
-        q = """
-        INSERT INTO listings_source (
-            id, created_at, updated_at,
-            name,
-            base_url,
-            scraper_config
-        ) VALUES (
-            %(id)s, now(), now(),
-            %(name)s,
-            %(base_url)s,
-            %(scraper_config)s
-        ) ON CONFLICT DO NOTHING;
-        """
-        # execute query
-        try:
-            self.db.cursor.execute(q, source_item)
-            self.db.conn.commit()
-        except Exception as err:
-            self.db.conn.rollback()
-            raise ValueError("Source insertion failed: {0}".format(err))
-        return item
-
-
 class SellersPipeline:
     def __init__(self):
         self.db = PostgreSQLConnection()
@@ -398,10 +329,11 @@ class SellersPipeline:
         seller_type = item["seller"]["seller_type"]
         if not seller_type:
             seller_type = "person"
+        seller_name = jmespath.search("seller.name", item) or "Unknown Seller"
         seller_item = dict(
             source_id=item["source"]["id"],
             source_seller_id=item["seller"]["source_seller_id"],
-            name=item["seller"]["name"],
+            name=seller_name,
             seller_type=seller_type,
             primary_phone=item["seller"]["primary_phone"],
             primary_email=item["seller"]["primary_email"],
@@ -489,15 +421,23 @@ class ListingChangePipeline:
                 valid_from = dt.strptime(item["valid_from"], r"%Y-%m-%dT%H:%M:%S.%fZ")
             except ValueError:
                 valid_from = dt.strptime(item["valid_from"], r"%Y-%m-%dT%H:%M:%SZ")
+            except TypeError:
+                valid_from = None
             try:
                 valid_to = dt.strptime(item["valid_to"], r"%Y-%m-%dT%H:%M:%S.%fZ")
             except ValueError:
                 valid_to = dt.strptime(item["valid_to"], r"%Y-%m-%dT%H:%M:%SZ")
+            except TypeError:
+                valid_to = None
             new_listing = dict(
                 price=item["price"],
                 status=item["status"],
-                valid_from=valid_from.strftime(r"%Y-%m-%dT%H:%M:%S"),
-                valid_to=valid_to.strftime(r"%Y-%m-%dT%H:%M:%S"),
+                valid_from=(
+                    valid_from.strftime(r"%Y-%m-%dT%H:%M:%S") if valid_from else None
+                ),
+                valid_to=(
+                    valid_to.strftime(r"%Y-%m-%dT%H:%M:%S") if valid_to else None
+                ),
                 detail_description=item["detail_description"],
                 short_description=item["short_description"],
             )
@@ -545,27 +485,15 @@ class ListingChangePipeline:
                     self.db.conn.commit()
                 except Exception as err:
                     self.db.conn.rollback()
-                    db = next(get_db())
-                    error = (
-                        db.query(Error)
-                        .filter(
-                            Error.url == item["url"],
-                            Error.error_type == "Listing change",
-                            Error.error_message == str(err),
-                        )
-                        .first()
+                    # Insert error to db
+                    error_item = dict(
+                        url=item["url"],
+                        error_type="Listing changes insertion",
+                        error_message=str(err),
+                        error_traceback=traceback.format_exc(),
                     )
-                    if error:
-                        error.updated_at = func.now()
-                    else:
-                        error = Error(
-                            url=item["url"],
-                            error_type="Listing change",
-                            error_message=str(err),
-                            error_traceback=traceback.format_exc(),
-                        )
-                        db.add(error)
-                    db.commit()
+                    self.db.cursor.execute(error_insert_query, error_item)
+                    self.db.conn.commit()
                     raise ValueError(
                         "Error on listing changes insertion: {0}".format(err)
                     )

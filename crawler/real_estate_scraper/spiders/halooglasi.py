@@ -16,6 +16,7 @@ class HaloOglasiNekretnineSpider(scrapy.Spider):
     is_paginating = False
     visited_urls = []
     total_pages = 0
+    total_listings = 0
 
     def parse(self, response):
         elements = response.css("div:has(h3.product-title)")
@@ -24,6 +25,7 @@ class HaloOglasiNekretnineSpider(scrapy.Spider):
             short_description = el.css("p.short-desc::text").get()
             if url not in self.visited_urls:
                 self.visited_urls.append(url)
+                self.total_listings += 1
                 yield response.follow(
                     response.urljoin(url),
                     callback=self.parse_phonenumber,
@@ -41,11 +43,11 @@ class HaloOglasiNekretnineSpider(scrapy.Spider):
                 ).group("total_count")
                 total_count = int(total_count)
                 self.total_pages = math.ceil(total_count / item_per_page)
-                #  if self.total_pages:
-                #      self.in_pagination = True
-                #      for i in range(2, self.total_pages + 1):
-                #          next_url = response.url.split("?")[0] + "?page=" + str(i)
-                #          yield response.follow(next_url, callback=self.parse)
+                if self.total_pages:
+                    self.in_pagination = True
+                    for i in range(2, self.total_pages + 1):
+                        next_url = response.url.split("?")[0] + "?page=" + str(i)
+                        yield response.follow(next_url, callback=self.parse)
             except Exception as e:
                 total_count = 0
 

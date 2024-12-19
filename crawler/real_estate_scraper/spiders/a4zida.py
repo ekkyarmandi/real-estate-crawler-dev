@@ -16,6 +16,7 @@ class A4zidaSpider(scrapy.Spider):
         "https://www.4zida.rs/prodaja-stanova/beograd",
     ]
     is_paginating = False
+    total_listings = 0
 
     def parse(self, response):
         # find property urls
@@ -37,6 +38,7 @@ class A4zidaSpider(scrapy.Spider):
             if result:
                 total_counts = result[0].replace(".", "")
                 total_counts = int(total_counts)
+                self.total_listings = total_counts
             # create pagination
             total_pages = math.ceil(total_counts / item_per_page)
             for i in range(2, total_pages + 1):

@@ -7,6 +7,9 @@
 #     https://docs.scrapy.org/en/latest/topics/downloader-middleware.html
 #     https://docs.scrapy.org/en/latest/topics/spider-middleware.html
 
+from decouple import config
+
+
 BOT_NAME = "real_estate_scraper"
 
 SPIDER_MODULES = ["real_estate_scraper.spiders"]
@@ -59,11 +62,11 @@ ROBOTSTXT_OBEY = False
 ITEM_PIPELINES = {
     "real_estate_scraper.test_pipelines.TestOutputStructurePipeline": 50,
     # "real_estate_scraper.local_pipelines.PropertyPipeline": 100,
-    "real_estate_scraper.pipelines.ListingPipeline": 100,
-    "real_estate_scraper.pipelines.RawDataPipeline": 200,
-    "real_estate_scraper.pipelines.PropertyPipeline": 300,
-    "real_estate_scraper.pipelines.ImagesPipeline": 400,
-    "real_estate_scraper.pipelines.SourcesPipeline": 500,
+    "real_estate_scraper.pipelines.SourcesPipeline": 100,
+    "real_estate_scraper.pipelines.ListingPipeline": 200,
+    "real_estate_scraper.pipelines.RawDataPipeline": 300,
+    "real_estate_scraper.pipelines.PropertyPipeline": 400,
+    "real_estate_scraper.pipelines.ImagesPipeline": 500,
     "real_estate_scraper.pipelines.SellersPipeline": 600,
     "real_estate_scraper.pipelines.ListingChangePipeline": 700,
 }
@@ -107,7 +110,7 @@ PROXY_LIST = "proxies.txt"
 PROXY_MODE = 2
 
 # If proxy mode is 2 uncomment this sentence :
-CUSTOM_PROXY = ""
+CUSTOM_PROXY = config("PROXYSCRAPE_CREDENTIALS")
 
 # Retry many times since proxies often fail
 RETRY_TIMES = 10
@@ -120,7 +123,7 @@ REQUEST_FINGERPRINTER_IMPLEMENTATION = "2.7"
 TWISTED_REACTOR = "twisted.internet.asyncioreactor.AsyncioSelectorReactor"
 FEED_EXPORT_ENCODING = "utf-8"
 
-# LOG_LEVEL = "ERROR"
+LOG_LEVEL = "ERROR"
 # LOG_FILE = "scrapy.log"
 # LOG_SETTINGS = "logging.conf"
 

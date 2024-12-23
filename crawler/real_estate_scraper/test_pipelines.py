@@ -1,7 +1,6 @@
 class TestOutputStructurePipeline:
     REQUIRED_STRUCTURE = {
         "listing_id": str,
-        "elapsed_time": (int, float),
         "source_id": (str, type(None)),
         "title": (str, type(None)),
         "short_description": (str, type(None)),

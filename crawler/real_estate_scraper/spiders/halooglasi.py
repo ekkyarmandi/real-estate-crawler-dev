@@ -47,7 +47,7 @@ class HaloOglasiNekretnineSpider(scrapy.Spider):
                 total_count = int(total_count)
                 self.total_pages = math.ceil(total_count / item_per_page)
                 if self.total_pages:
-                    self.in_pagination = True
+                    self.is_paginating = True
                     for i in range(2, self.total_pages + 1):
                         next_url = response.url.split("?")[0] + "?page=" + str(i)
                         yield response.follow(next_url, callback=self.parse)
@@ -87,7 +87,6 @@ class HaloOglasiNekretnineSpider(scrapy.Spider):
 
     def parse_detail(self, response):
         try:
-            elapsed_time = response.meta.get("elapsed_time")
             short_description = response.meta.get("short_description")
             source_url = response.meta.get("url")
             response_text = response.meta.get("response_text")
@@ -108,7 +107,6 @@ class HaloOglasiNekretnineSpider(scrapy.Spider):
 
             yield {
                 "listing_id": str(uuid.uuid4()),
-                "elapsed_time": elapsed_time,
                 "source_id": property_data.get("Id"),
                 "title": property_data.get("Title"),
                 # "source_internal_id": None,

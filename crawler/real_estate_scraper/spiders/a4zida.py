@@ -48,7 +48,6 @@ class A4zidaSpider(scrapy.Spider):
 
     def parse_detail(self, response):
         try:
-            elapsed_time = response.meta.get("download_latency")
             # find property data
             data = self.find_property_data(response)
             lonlat = self.find_longitude_latitude(response)
@@ -109,7 +108,6 @@ class A4zidaSpider(scrapy.Spider):
             )
             yield {
                 "listing_id": str(uuid.uuid4()),
-                "elapsed_time": elapsed_time,
                 "source_id": data.get("id"),
                 "title": data.get("title", page["title"]),
                 "short_description": data.get("humanReadableDescription"),

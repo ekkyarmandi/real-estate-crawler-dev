@@ -178,7 +178,6 @@ class RawDataPipeline:
         # construct raw data item
         raw_data_item = dict(
             listing_id=item["listing_id"],
-            reponse_time=item["elapsed_time"],
             html=item["raw_data"]["html"],
             data=json.dumps(item["raw_data"]["data"]),
         )

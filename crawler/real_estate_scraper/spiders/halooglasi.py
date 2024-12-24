@@ -50,7 +50,7 @@ class HaloOglasiNekretnineSpider(scrapy.Spider):
                     self.is_paginating = True
                     for i in range(2, self.total_pages + 1):
                         next_url = response.url.split("?")[0] + "?page=" + str(i)
-                        # yield response.follow(next_url, callback=self.parse)
+                        yield response.follow(next_url, callback=self.parse)
             except Exception as e:
                 total_count = 0
 

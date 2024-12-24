@@ -28,7 +28,6 @@ class HaloOglasiNekretnineSpider(scrapy.Spider):
             short_description = el.css("p.short-desc::text").get()
             if url not in self.visited_urls:
                 self.visited_urls.append(url)
-                self.total_listings += 1
                 yield response.follow(
                     response.urljoin(url),
                     callback=self.parse_phonenumber,
@@ -45,6 +44,7 @@ class HaloOglasiNekretnineSpider(scrapy.Spider):
                     r"TotalCount(.*?)(?P<total_count>\d+)", page_source
                 ).group("total_count")
                 total_count = int(total_count)
+                self.total_listings = total_count
                 self.total_pages = math.ceil(total_count / item_per_page)
                 if self.total_pages:
                     self.is_paginating = True

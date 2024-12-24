@@ -123,9 +123,9 @@ REQUEST_FINGERPRINTER_IMPLEMENTATION = "2.7"
 TWISTED_REACTOR = "twisted.internet.asyncioreactor.AsyncioSelectorReactor"
 FEED_EXPORT_ENCODING = "utf-8"
 
-# LOG_LEVEL = "INFO"
-# LOG_FILE = "scrapy.log"
-# LOG_SETTINGS = "logging.conf"
+LOG_LEVEL = "INFO"
+LOG_FILE = "scrapy.log"
+LOG_SETTINGS = "logging.conf"
 
 # Hierarchical logging
 # DEBUG: Detailed diagnostic information useful for developers.

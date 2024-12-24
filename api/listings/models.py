@@ -16,12 +16,12 @@ class Listing(TimestampedMixin, models.Model):
     last_seen_at = models.DateTimeField()
     valid_from = models.DateTimeField(null=True)
     valid_to = models.DateTimeField(null=True)
-    total_views = models.IntegerField()
-    city = models.CharField(max_length=255)
-    municipality = models.CharField(max_length=255)
-    micro_location = models.CharField(max_length=255)
-    latitude = models.FloatField()
-    longitude = models.FloatField()
+    total_views = models.IntegerField(default=0)
+    city = models.CharField(max_length=255, null=True)
+    municipality = models.CharField(max_length=255, null=True)
+    micro_location = models.CharField(max_length=255, null=True)
+    latitude = models.FloatField(null=True)
+    longitude = models.FloatField(null=True)
 
     def __str__(self):
         return f"{self.source_id} - {self.url}"
@@ -37,10 +37,10 @@ class RawData(TimestampedMixin, models.Model):
 class Property(TimestampedMixin, models.Model):
     id = models.UUIDField(primary_key=True)
     listing = models.ForeignKey(Listing, on_delete=models.CASCADE)
-    property_type = models.CharField(max_length=255)
+    property_type = models.CharField(max_length=255, null=True)
     building_type = models.CharField(max_length=255, null=True)
     size_m2 = models.FloatField()
-    floor_number = models.IntegerField(null=True)
+    floor_number = models.CharField(max_length=255, null=True)
     total_floors = models.IntegerField(null=True)
     rooms = models.FloatField(null=True)
     property_state = models.CharField(max_length=255, null=True)
@@ -75,7 +75,7 @@ class Source(TimestampedMixin, models.Model):
 class Seller(TimestampedMixin, models.Model):
     id = models.UUIDField(primary_key=True)
     source = models.ForeignKey(Source, on_delete=models.SET_NULL, null=True)
-    source_seller_id = models.CharField(max_length=255)
+    source_seller_id = models.CharField(max_length=255, null=True)
     name = models.CharField(max_length=255)
     seller_type = models.CharField(max_length=255)
     primary_phone = models.CharField(max_length=255, null=True)
@@ -96,6 +96,7 @@ class ListingChange(TimestampedMixin, models.Model):
 
 class Report(TimestampedMixin, models.Model):
     id = models.UUIDField(primary_key=True)
+    source_name = models.CharField(max_length=255, null=True)
     total_pages = models.IntegerField()
     total_listings = models.IntegerField()
     item_scraped_count = models.IntegerField()

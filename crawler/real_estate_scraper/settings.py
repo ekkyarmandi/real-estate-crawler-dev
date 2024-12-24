@@ -60,8 +60,8 @@ ROBOTSTXT_OBEY = False
 # Configure item pipelines
 # See https://docs.scrapy.org/en/latest/topics/item-pipeline.html
 ITEM_PIPELINES = {
+    #  "real_estate_scraper.local_pipelines.PropertyPipeline": 100,
     "real_estate_scraper.test_pipelines.TestOutputStructurePipeline": 50,
-    # "real_estate_scraper.local_pipelines.PropertyPipeline": 100,
     "real_estate_scraper.pipelines.SourcesPipeline": 100,
     "real_estate_scraper.pipelines.ListingPipeline": 200,
     "real_estate_scraper.pipelines.RawDataPipeline": 300,
@@ -96,21 +96,21 @@ ITEM_PIPELINES = {
 # See https://docs.scrapy.org/en/latest/topics/downloader-middleware.html
 DOWNLOADER_MIDDLEWARES = {
     # "props.middlewares.PropertiesDownloaderMiddleware": 543,
-    # "scrapy.downloadermiddlewares.retry.RetryMiddleware": 90,
-    # "scrapy_proxies.RandomProxy": 100,
-    # "scrapy.downloadermiddlewares.httpproxy.HttpProxyMiddleware": 110,
+    "scrapy.downloadermiddlewares.retry.RetryMiddleware": 90,
+    "scrapy_proxies.RandomProxy": 100,
+    "scrapy.downloadermiddlewares.httpproxy.HttpProxyMiddleware": 110,
 }
 # See scrapy-proxies docs https://github.com/aivarsk/scrapy-proxies
-PROXY_LIST = "proxies.txt"
+PROXY_LIST = "smartproxy.txt"
 
 # Proxy mode
 # 0 = Every requests have different proxy
 # 1 = Take only one proxy from the list and assign it to every requests
 # 2 = Put a custom proxy to use in the settings
-PROXY_MODE = 2
+PROXY_MODE = 0
 
 # If proxy mode is 2 uncomment this sentence :
-CUSTOM_PROXY = config("PROXYSCRAPE_CREDENTIALS")
+# CUSTOM_PROXY = config("PROXYSCRAPE_CREDENTIALS")
 
 # Retry many times since proxies often fail
 RETRY_TIMES = 10
@@ -123,9 +123,9 @@ REQUEST_FINGERPRINTER_IMPLEMENTATION = "2.7"
 TWISTED_REACTOR = "twisted.internet.asyncioreactor.AsyncioSelectorReactor"
 FEED_EXPORT_ENCODING = "utf-8"
 
-LOG_LEVEL = "INFO"
-LOG_FILE = "scrapy.log"
-LOG_SETTINGS = "logging.conf"
+# LOG_LEVEL = "INFO"
+# LOG_FILE = "scrapy.log"
+# LOG_SETTINGS = "logging.conf"
 
 # Hierarchical logging
 # DEBUG: Detailed diagnostic information useful for developers.

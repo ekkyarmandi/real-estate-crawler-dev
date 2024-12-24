@@ -43,9 +43,9 @@ class A4zidaSpider(scrapy.Spider):
             # create pagination
             total_pages = math.ceil(total_counts / item_per_page)
             self.total_pages = total_pages
-            for i in range(2, total_pages + 1):
+            for i in range(2, 101):
                 next_url = response.url.split("?")[0] + "?strana=" + str(i)
-                yield response.follow(next_url)
+                # yield response.follow(next_url)
 
     def parse_detail(self, response):
         try:

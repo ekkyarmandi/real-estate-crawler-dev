@@ -12,6 +12,7 @@ class Report(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    source_name = Column(String(255), nullable=True)
     total_pages = Column(Integer, nullable=False, default=0)
     total_listings = Column(Integer, nullable=False, default=0)
     item_scraped_count = Column(Integer, nullable=False, default=0)

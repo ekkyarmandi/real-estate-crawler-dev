@@ -9,7 +9,7 @@ from scrapy.exceptions import DropItem
 from datetime import datetime as dt
 from decouple import config
 from real_estate_scraper.database import get_db
-from models.error import Report
+from models.error import Report, Error
 import dj_database_url
 import psycopg2
 import json
@@ -124,6 +124,8 @@ class ListingPipeline:
             latitude=item["address"]["latitude"],
             longitude=item["address"]["longitude"],
         )
+        if not listing_item["price"]:
+            listing_item["price"] = -1
         # insert value
         try:
             self.db.cursor.execute(listing_insert_query, listing_item)
@@ -141,6 +143,10 @@ class ListingPipeline:
             self.db.conn.commit()
             raise DropItem("Listing insertion failed: {0}".format(err))
 
+        # remove listing url from error if it exists
+        db = next(get_db())
+        db.query(Error).filter(Error.url == item["url"]).delete()
+        db.commit()
         return item
 
     def close_spider(self, spider):
@@ -153,6 +159,7 @@ class ListingPipeline:
         start_time = stats.get("start_time", 0)
         elapsed_time = dt.now(start_time.tzinfo) - start_time
         report_item = dict(
+            source_name=spider.name,
             total_pages=total_pages,  # Use the total_pages from the spider
             total_listings=total_listings,
             item_scraped_count=stats.get("item_scraped_count", 0),

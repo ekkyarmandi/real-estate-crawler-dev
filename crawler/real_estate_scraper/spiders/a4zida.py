@@ -42,6 +42,7 @@ class A4zidaSpider(scrapy.Spider):
                 self.total_listings = total_counts
             # create pagination
             total_pages = math.ceil(total_counts / item_per_page)
+            self.total_pages = total_pages
             for i in range(2, total_pages + 1):
                 next_url = response.url.split("?")[0] + "?strana=" + str(i)
                 yield response.follow(next_url)

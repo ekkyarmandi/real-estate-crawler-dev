@@ -2,22 +2,16 @@ from datetime import datetime
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, String, Text, DateTime, func, Integer, Float
+from constants import DEFAULT_SETTINGS
 import uuid
 import json
 
 Base = declarative_base()
 
-DEFAULT_SETTINGS = {
-    "city": "Beograd",
-    "price": "50000-150000",
-    "size": "45-120",
-    "rooms": "3.0",
-}
-
 
 class User(Base):
     __tablename__ = "bot_user"
-    # COMMENT: rooms options - 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5
+    # COMMENT: rooms options -
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     created_at = Column(DateTime, default=func.now())

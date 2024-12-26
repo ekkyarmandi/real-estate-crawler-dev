@@ -107,10 +107,10 @@ PROXY_LIST = "smartproxy.txt"
 # 0 = Every requests have different proxy
 # 1 = Take only one proxy from the list and assign it to every requests
 # 2 = Put a custom proxy to use in the settings
-PROXY_MODE = 0
+PROXY_MODE = 2
 
 # If proxy mode is 2 uncomment this sentence :
-# CUSTOM_PROXY = config("PROXYSCRAPE_CREDENTIALS")
+CUSTOM_PROXY = config("PROXYSCRAPE_CREDENTIALS")
 
 # Retry many times since proxies often fail
 RETRY_TIMES = 10

@@ -1,0 +1,55 @@
+2024-12-24 13:22:27 [scrapy.utils.log] INFO: Scrapy 2.12.0 started (bot: real_estate_scraper)
+2024-12-24 13:22:27 [scrapy.utils.log] INFO: Versions: lxml 5.3.0.0, libxml2 2.12.9, cssselect 1.2.0, parsel 1.9.1, w3lib 2.2.1, Twisted 24.11.0, Python 3.10.15 (main, Sep  7 2024, 18:55:53) [Clang 14.0.0 (clang-1400.0.29.202)], pyOpenSSL 24.3.0 (OpenSSL 3.4.0 22 Oct 2024), cryptography 44.0.0, Platform macOS-12.2.1-arm64-arm-64bit
+2024-12-24 13:22:27 [scrapy.addons] INFO: Enabled addons:
+[]
+2024-12-24 13:22:27 [py.warnings] WARNING: /Users/ekkyarmandi/Documents/1 Projects/Pharadaylabs/.venv/lib/python3.10/site-packages/scrapy/utils/request.py:120: ScrapyDeprecationWarning: 'REQUEST_FINGERPRINTER_IMPLEMENTATION' is a deprecated setting.
+It will be removed in a future version of Scrapy.
+  return cls(crawler)
+
+2024-12-24 13:22:27 [scrapy.extensions.telnet] INFO: Telnet Password: adc2d3e904fc4873
+2024-12-24 13:22:27 [scrapy.middleware] INFO: Enabled extensions:
+['scrapy.extensions.corestats.CoreStats',
+ 'scrapy.extensions.telnet.TelnetConsole',
+ 'scrapy.extensions.memusage.MemoryUsage',
+ 'scrapy.extensions.logstats.LogStats']
+2024-12-24 13:22:27 [scrapy.crawler] INFO: Overridden settings:
+{'BOT_NAME': 'real_estate_scraper',
+ 'FEED_EXPORT_ENCODING': 'utf-8',
+ 'LOG_FILE': 'scrapy.log',
+ 'LOG_LEVEL': 'INFO',
+ 'NEWSPIDER_MODULE': 'real_estate_scraper.spiders',
+ 'REQUEST_FINGERPRINTER_IMPLEMENTATION': '2.7',
+ 'RETRY_HTTP_CODES': [500, 503, 504, 400, 403, 404, 408],
+ 'RETRY_TIMES': 10,
+ 'SPIDER_MODULES': ['real_estate_scraper.spiders'],
+ 'TWISTED_REACTOR': 'twisted.internet.asyncioreactor.AsyncioSelectorReactor'}
+2024-12-24 13:22:27 [scrapy.middleware] INFO: Enabled downloader middlewares:
+['scrapy.downloadermiddlewares.offsite.OffsiteMiddleware',
+ 'scrapy.downloadermiddlewares.httpauth.HttpAuthMiddleware',
+ 'scrapy.downloadermiddlewares.downloadtimeout.DownloadTimeoutMiddleware',
+ 'scrapy.downloadermiddlewares.defaultheaders.DefaultHeadersMiddleware',
+ 'scrapy.downloadermiddlewares.useragent.UserAgentMiddleware',
+ 'scrapy.downloadermiddlewares.retry.RetryMiddleware',
+ 'scrapy.downloadermiddlewares.redirect.MetaRefreshMiddleware',
+ 'scrapy.downloadermiddlewares.httpcompression.HttpCompressionMiddleware',
+ 'scrapy.downloadermiddlewares.redirect.RedirectMiddleware',
+ 'scrapy.downloadermiddlewares.cookies.CookiesMiddleware',
+ 'scrapy.downloadermiddlewares.httpproxy.HttpProxyMiddleware',
+ 'scrapy.downloadermiddlewares.stats.DownloaderStats']
+2024-12-24 13:22:27 [scrapy.middleware] INFO: Enabled spider middlewares:
+['scrapy.spidermiddlewares.httperror.HttpErrorMiddleware',
+ 'scrapy.spidermiddlewares.referer.RefererMiddleware',
+ 'scrapy.spidermiddlewares.urllength.UrlLengthMiddleware',
+ 'scrapy.spidermiddlewares.depth.DepthMiddleware']
+2024-12-24 13:22:28 [scrapy.middleware] INFO: Enabled item pipelines:
+['real_estate_scraper.test_pipelines.TestOutputStructurePipeline',
+ 'real_estate_scraper.pipelines.SourcesPipeline',
+ 'real_estate_scraper.pipelines.ListingPipeline',
+ 'real_estate_scraper.pipelines.RawDataPipeline',
+ 'real_estate_scraper.pipelines.PropertyPipeline',
+ 'real_estate_scraper.pipelines.ImagesPipeline',
+ 'real_estate_scraper.pipelines.SellersPipeline',
+ 'real_estate_scraper.pipelines.ListingChangePipeline']
+2024-12-24 13:22:28 [scrapy.core.engine] INFO: Spider opened
+2024-12-24 13:22:28 [scrapy.extensions.logstats] INFO: Crawled 0 pages (at 0 pages/min), scraped 0 items (at 0 items/min)
+2024-12-24 13:22:28 [scrapy.extensions.telnet] INFO: Telnet console listening on 127.0.0.1:6023

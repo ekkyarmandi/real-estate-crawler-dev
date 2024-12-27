@@ -16,6 +16,7 @@ class User(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
+    chat_id = Column(String(255), unique=True, nullable=False)
     username = Column(String(255), unique=True, nullable=False)
     name = Column(String(255), nullable=False)
     profile_url = Column(String(255), nullable=False)
@@ -30,7 +31,7 @@ class User(Base):
         return f"city = '{city}' AND price >= {price_min} AND price <= {price_max} AND size_m2 >= {size_min} AND size_m2 <= {size_max} AND rooms = {rooms}"
 
 
-class Listing:
+class CustomListing:
     url: str
     city: str
     price: float
@@ -38,7 +39,6 @@ class Listing:
     rooms: float
     municipality: str
     micro_location: str
-    settings: str
 
     def __init__(self, **kwargs):
         self.url = kwargs.get("url", "")
@@ -53,7 +53,7 @@ class Listing:
         publication_date = datetime.now().strftime("%Y-%m-%d")
         location = f"{self.city} - {self.municipality} - {self.micro_location}"
         return (
-            f"🏢 City: {self.settings.city}\n"
+            f"🏢 City: {self.city}\n"
             f"📍 Location: {location}\n"
             f"💰 Price: € {int(self.price):,d}\n"
             f"📏 Size: {self.size_m2:,.2f} m²\n"

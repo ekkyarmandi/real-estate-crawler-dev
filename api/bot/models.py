@@ -13,6 +13,7 @@ DEFAULT_SETTINGS = {
 class User(TimestampedMixin, models.Model):
     id = models.UUIDField(primary_key=True)
     username = models.CharField(max_length=255, unique=True)
+    chat_id = models.CharField(max_length=255, unique=True)
     name = models.CharField(max_length=255)
     profile_url = models.CharField(max_length=255)
     settings = models.TextField(default=json.dumps(DEFAULT_SETTINGS))

@@ -55,6 +55,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         id=str(uuid.uuid4()),
         created_at=datetime.now(),
         updated_at=datetime.now(),
+        chat_id=update.message.chat.id,
         username=username,
         name=update.message.chat.full_name,
         profile_url=f"https://t.me/{username}",
@@ -62,7 +63,16 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     q = text(
         """
-        INSERT INTO bot_user (id, created_at, updated_at, username, name, profile_url, settings) VALUES (:id, :created_at, :updated_at, :username, :name, :profile_url, :settings)
+        INSERT INTO bot_user (
+            id,
+            created_at,
+            updated_at,
+            chat_id,
+            username,
+            name,
+            profile_url,
+            settings
+        ) VALUES (:id, :created_at, :updated_at, :chat_id, :username, :name, :profile_url, :settings)
         ON CONFLICT (username) DO UPDATE SET name = :name, profile_url = :profile_url, updated_at = :updated_at;
         """
     )
@@ -122,6 +132,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
 
+    # Handle settings callbacks
     if query.data == "configure":
         await configure_settings_command(update, context)
     elif query.data == "city":
@@ -177,6 +188,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(text="Settings change cancelled!")
         return ConversationHandler.END
 
+    # Handle city and room selection
     if query.data in CITY_OPTIONS:
         context.user_data["settings"]["city"] = query.data
         await configure_settings_command(update, context)

@@ -7,8 +7,6 @@ DEFAULT_SETTINGS = {
 
 CITY_OPTIONS = [
     "Beograd",
-    "Jogja",
-    "Samarinda",
 ]
 
 ROOM_OPTIONS = [

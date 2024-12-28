@@ -23,15 +23,7 @@ async def send_message(chat_id, text):
 
 async def send_queues():
     db = next(get_db())
-    queues = (
-        db.query(Queue)
-        .filter(
-            Queue.is_sent == False,
-            Queue.user_id == "f4b4e969-3c29-478e-b793-607889842936",
-        )
-        .limit(30)
-        .all()
-    )
+    queues = db.query(Queue).filter(Queue.is_sent == False).limit(20).all()
     count = 0
     for queue in queues:
         chat_id = queue.user.chat_id

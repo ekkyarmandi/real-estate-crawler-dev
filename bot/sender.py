@@ -1,15 +1,35 @@
 from telegram import Bot
 from decouple import config
-from sqlalchemy import text
 from database import get_db
 from models import Queue, CustomListing
 import asyncio
 import logging
+from logging.handlers import RotatingFileHandler
+import shutil
 
 TOKEN = config("TELEGRAMBOT_TOKEN")
 bot = Bot(token=TOKEN)
 
 logger = logging.getLogger(__name__)
+
+# Configure logging to write to a file with rotation
+log_handler = RotatingFileHandler(
+    "queue.log",  # Log file name
+    maxBytes=1024 * 1024,  # Approximate size in bytes before rotating (e.g., 1MB)
+    backupCount=5,  # Number of backup files to keep
+)
+
+# Optional: compress the rotated log files
+log_handler.rotator = lambda source, dest: shutil.move(source, dest + ".gz")
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    handlers=[
+        log_handler,
+        logging.StreamHandler(),  # Optional: keep logging to console as well
+    ],
+)
 
 
 async def send_message(chat_id, text):
@@ -47,7 +67,7 @@ async def send_queues():
             queue.is_sent = True
             db.commit()
 
-    logger.info(f"{count} listings queued has been sent")
+    logger.info(f"{count} queued listings has been sent")
 
 
 async def main():

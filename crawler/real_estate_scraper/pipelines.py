@@ -10,14 +10,30 @@ from datetime import datetime as dt
 from decouple import config
 from real_estate_scraper.database import get_db
 from models.error import Report, Error
+from models.user import User
+from models.queue import Queue
+from models.custom_listing import CustomListing
+from sqlalchemy import text
 import dj_database_url
 import psycopg2
+import requests
 import json
 import traceback
 import jmespath
 
 from real_estate_scraper.templates.sql.listing import listing_insert_query
 from real_estate_scraper.templates.sql.error import error_insert_query
+
+
+def send_message(chat_id, text):
+    try:
+        token = config("TELEGRAMBOT_TOKEN")
+        url = f"https://api.telegram.org/bot{token}/sendMessage"
+        payload = {"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}
+        response = requests.post(url, data=payload)
+        response.raise_for_status()  # Raise an error for bad responses
+    except requests.exceptions.RequestException as e:
+        print("Error sending message:", e)
 
 
 def keep_url_only(item):
@@ -97,6 +113,56 @@ class ListingPipeline:
     def __init__(self):
         self.db = PostgreSQLConnection()
 
+    def __queue_new_listings(self, spider):
+        db = next(get_db())
+        today = dt.now().strftime(r"%Y-%m-%d")
+        users = db.query(User).all()
+        # query new listings
+        cols = [
+            "id",
+            "url",
+            "city",
+            "price",
+            "municipality",
+            "micro_location",
+            "size_m2",
+            "rooms",
+        ]
+        q = text(
+            f"""
+            SELECT
+                listings.id,
+                listings.url,
+                listings.city,
+                listings.price,
+                listings.municipality,
+                listings.micro_location,
+                properties.size_m2,
+                properties.rooms
+            FROM listings_listing as listings
+            JOIN listings_property as properties ON listings.id = properties.listing_id
+            WHERE listings.created_at >= '{today}'
+            AND listings.url LIKE '%{spider.name}%'
+            GROUP BY listings.id;
+            """
+        )
+        result = db.execute(q)
+        listings = result.fetchall()
+        # convert raw data into custom listings
+        listings = [dict(zip(cols, listing)) for listing in listings]
+        listings = [CustomListing(**item) for item in listings]
+        # send all the listings via telegram bot as notifications
+        for user in users:
+            for listing in listings:
+                if listing.validate_settings(user.settings):
+                    # create queue
+                    queue = Queue(listing_id=listing.id, user_id=user.id)
+                    try:
+                        db.add(queue)
+                        db.commit()
+                    except Exception as err:
+                        db.rollback()
+
     def process_item(self, item, spider):
         # query the existing listing by url
         q = "SELECT * FROM listings_listing WHERE url='{}';".format(item["url"])
@@ -175,6 +241,9 @@ class ListingPipeline:
         except Exception as err:
             db.rollback()
             raise ValueError("Error on spider close: {0}".format(err))
+
+        # queue new listings
+        self.__queue_new_listings(spider)
 
 
 class RawDataPipeline:
@@ -411,7 +480,14 @@ class ListingChangePipeline:
         if listing:
             raw_data_id = listing[-1]
             listing = dict(zip(columns, listing))
-            listing["price"] = float(listing["price"])
+            # validate the price
+            price = listing["price"]
+            if not price:
+                listing["price"] = -1
+            else:
+                listing["price"] = float(listing["price"])
+                listing["price"] = round(listing["price"], 2)
+            # validate valid_from and valid_to
             if listing["valid_from"]:
                 listing["valid_from"] = listing["valid_from"].strftime(
                     r"%Y-%m-%dT%H:%M:%S"
@@ -422,7 +498,6 @@ class ListingChangePipeline:
                 listing["valid_to"] = listing["valid_to"].strftime(r"%Y-%m-%dT%H:%M:%S")
             else:
                 listing["valid_to"] = None
-            # construct listing change item by combining ListingItem with ListingChangeItem
             try:
                 valid_from = dt.strptime(item["valid_from"], r"%Y-%m-%dT%H:%M:%S.%fZ")
             except ValueError:
@@ -435,6 +510,7 @@ class ListingChangePipeline:
                 valid_to = dt.strptime(item["valid_to"], r"%Y-%m-%dT%H:%M:%SZ")
             except TypeError:
                 valid_to = None
+            # construct listing change item by combining ListingItem with ListingChangeItem
             new_listing = dict(
                 price=item["price"],
                 status=item["status"],
@@ -452,6 +528,11 @@ class ListingChangePipeline:
             for col in ["price", "short_description", "detail_description"]:
                 old_value = listing[col]
                 new_value = new_listing[col]
+                # make sure price is rounded
+                if col == "price" and old_value > 0:
+                    old_value = round(old_value, 2)
+                if col == "price" and new_value > 0:
+                    new_value = round(new_value, 2)
                 if old_value != new_value:
                     change = dict(
                         listing_id=item["listing_id"],

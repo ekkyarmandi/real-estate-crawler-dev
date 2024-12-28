@@ -1,5 +1,6 @@
 from django.db import models
 from common.models import TimestampedMixin
+from bot.models import User
 
 
 class Listing(TimestampedMixin, models.Model):
@@ -119,3 +120,20 @@ class Error(TimestampedMixin, models.Model):
                 name="unique_error_constraint",
             )
         ]
+
+
+class Queue(TimestampedMixin, models.Model):
+    id = models.UUIDField(primary_key=True)
+    listing = models.ForeignKey(Listing, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    is_sent = models.BooleanField(default=False)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["listing", "user"], name="unique_listing_and_user_queue"
+            )
+        ]
+
+    def __str__(self):
+        return " to ".join([self.listing.id, self.user.chat_id])

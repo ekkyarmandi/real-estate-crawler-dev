@@ -30,7 +30,7 @@ class CustomListing:
         size_min, size_max = settings["size"].split("-")
         rooms = settings["rooms"]
         # is listing.city is contain settings.city?
-        if not city in self.city:
+        if self.city and not city in self.city:
             return False
         # is listing.rooms is equal to settings.rooms?
         elif float(self.rooms) != float(rooms):

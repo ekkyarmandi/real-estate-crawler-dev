@@ -7,27 +7,27 @@ import jmespath
 import traceback
 
 from real_estate_scraper.database import get_db
+from real_estate_scraper.spiders.base import BaseSpider
 from models.error import Error
 
 
-class A4zidaSpider(scrapy.Spider):
+class A4zidaSpider(BaseSpider):
     name = "4zida"
     allowed_domains = ["www.4zida.rs"]
-    start_urls = [
-        "https://www.4zida.rs/prodaja-stanova/beograd",
-    ]
-    is_paginating = False
-    total_listings = 0
+    start_urls = ["https://www.4zida.rs/prodaja-stanova/beograd"]
 
     def parse(self, response):
         # find property urls
         urls = response.css("div:has(button):has(a) > a:has(p)::attr(href)").getall()
         urls = list(dict.fromkeys((urls)))
         for url in urls:
-            yield response.follow(
-                response.urljoin(url),
-                callback=self.parse_detail,
-            )
+            if url not in self.visited_urls:
+                self.visited_urls.append(url)
+                yield response.follow(
+                    response.urljoin(url),
+                    callback=self.parse_detail,
+                    errback=self.handle_error,
+                )
 
         # find total properties listed in the page, then create pagination
         item_per_page = 0
@@ -199,8 +199,8 @@ class A4zidaSpider(scrapy.Spider):
             return eval(text)
         except TypeError:
             return {}
-        except Exception as error:
-            print(error)
+        except Exception as err:
+            # print(response.url, err)
             return {}
 
     def find_longitude_latitude(self, response):

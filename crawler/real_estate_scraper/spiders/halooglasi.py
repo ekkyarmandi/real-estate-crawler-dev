@@ -9,17 +9,14 @@ import traceback
 
 from real_estate_scraper.database import get_db
 from real_estate_scraper.decorators import json_finder
+from real_estate_scraper.spiders.base import BaseSpider
 from models.error import Error
 
 
-class HaloOglasiNekretnineSpider(scrapy.Spider):
+class HaloOglasiNekretnineSpider(BaseSpider):
     name = "halooglasi"
     allowed_domains = ["www.halooglasi.com"]
     start_urls = ["https://www.halooglasi.com/nekretnine/prodaja-stanova/beograd"]
-    is_paginating = False
-    visited_urls = []
-    total_pages = 0
-    total_listings = 0
 
     def parse(self, response):
         elements = response.css("div:has(h3.product-title)")
@@ -32,6 +29,7 @@ class HaloOglasiNekretnineSpider(scrapy.Spider):
                     response.urljoin(url),
                     callback=self.parse_phonenumber,
                     meta=dict(short_description=short_description),
+                    errback=self.handle_error,
                 )
 
         # paginate

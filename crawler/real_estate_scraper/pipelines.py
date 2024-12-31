@@ -16,24 +16,12 @@ from models.custom_listing import CustomListing
 from sqlalchemy import text
 import dj_database_url
 import psycopg2
-import requests
 import json
 import traceback
 import jmespath
 
 from real_estate_scraper.templates.sql.listing import listing_insert_query
 from real_estate_scraper.templates.sql.error import error_insert_query
-
-
-def send_message(chat_id, text):
-    try:
-        token = config("TELEGRAMBOT_TOKEN")
-        url = f"https://api.telegram.org/bot{token}/sendMessage"
-        payload = {"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}
-        response = requests.post(url, data=payload)
-        response.raise_for_status()  # Raise an error for bad responses
-    except requests.exceptions.RequestException as e:
-        print("Error sending message:", e)
 
 
 def keep_url_only(item):
@@ -137,8 +125,8 @@ class ListingPipeline:
                 listings.price,
                 listings.municipality,
                 listings.micro_location,
-                properties.size_m2,
-                properties.rooms
+                COALESCE(MAX(properties.size_m2), 0) AS size_m2,
+                COALESCE(MAX(properties.rooms), 0) AS rooms
             FROM listings_listing as listings
             JOIN listings_property as properties ON listings.id = properties.listing_id
             WHERE listings.created_at >= '{today}'
@@ -215,28 +203,40 @@ class ListingPipeline:
         db.commit()
         return item
 
-    def close_spider(self, spider):
-        # Access total_pages from the spider
-        total_pages = getattr(spider, "total_pages", 0)
-        total_listings = getattr(spider, "total_listings", 0)
-        # get spider stats
-        stats = spider.crawler.stats.get_stats()
-        # create spider report
-        start_time = stats.get("start_time", 0)
-        elapsed_time = dt.now(start_time.tzinfo) - start_time
-        report_item = dict(
-            source_name=spider.name,
-            total_pages=total_pages,  # Use the total_pages from the spider
-            total_listings=total_listings,
-            item_scraped_count=stats.get("item_scraped_count", 0),
-            item_dropped_count=stats.get("item_dropped_count", 0),
-            response_error_count=stats.get("log_count/ERROR", 0),
-            elapsed_time_seconds=elapsed_time.total_seconds(),
-        )
+    def open_spider(self, spider):
         db = next(get_db())
         try:
-            report = Report(**report_item)
+            report = Report(source_name=spider.name)
             db.add(report)
+            db.commit()
+            db.refresh(report)
+            spider.report_id = report.id
+        except Exception as err:
+            db.rollback()
+            raise ValueError("Error on spider close: {0}".format(err))
+
+    def close_spider(self, spider):
+        # Access total_pages and total_listings from the spider
+        total_pages = getattr(spider, "total_pages", 0)
+        total_listings = getattr(spider, "total_listings", 0)
+        visited_urls = getattr(spider, "visited_urls", [])
+        total_actual_listings = len(visited_urls)
+        # Get spider stats
+        stats = spider.crawler.stats.get_stats()
+        # Calculate elapsed time
+        start_time = stats.get("start_time", 0)
+        elapsed_time = dt.now(start_time.tzinfo) - start_time
+        # Update the existing report using spider.report_id
+        db = next(get_db())
+        try:
+            report = db.query(Report).filter(Report.id == spider.report_id).one()
+            report.total_pages = total_pages
+            report.total_listings = total_listings
+            report.total_actual_listings = total_actual_listings
+            report.item_scraped_count = stats.get("item_scraped_count", 0)
+            report.item_dropped_count = stats.get("item_dropped_count", 0)
+            report.response_error_count = stats.get("log_count/ERROR", 0)
+            report.elapsed_time_seconds = elapsed_time.total_seconds()
             db.commit()
         except Exception as err:
             db.rollback()
@@ -259,17 +259,8 @@ class RawDataPipeline:
         )
         # write the insert query
         q = """
-        INSERT INTO listings_rawdata (
-            id, created_at, updated_at,
-            listing_id,
-            html,
-            data
-        ) VALUES (
-            uuid_generate_v4(), now(), now(),
-            %(listing_id)s,
-            %(html)s,
-            %(data)s
-        );
+        INSERT INTO listings_rawdata (id, created_at, updated_at, listing_id, html, data)
+        VALUES (uuid_generate_v4(), now(), now(), %(listing_id)s, %(html)s, %(data)s);
         """
         # execute the query
         try:
@@ -485,8 +476,7 @@ class ListingChangePipeline:
             if not price:
                 listing["price"] = -1
             else:
-                listing["price"] = float(listing["price"])
-                listing["price"] = round(listing["price"], 2)
+                listing["price"] = round(float(listing["price"]), 2)
             # validate valid_from and valid_to
             if listing["valid_from"]:
                 listing["valid_from"] = listing["valid_from"].strftime(
@@ -523,16 +513,16 @@ class ListingChangePipeline:
                 detail_description=item["detail_description"],
                 short_description=item["short_description"],
             )
+            # validate new listing values
+            try:
+                new_listing["price"] = round(float(new_listing["price"]), 2)
+            except (ValueError, TypeError):
+                new_listing["price"] = -1
             # check the changes
             change_items = []
             for col in ["price", "short_description", "detail_description"]:
                 old_value = listing[col]
                 new_value = new_listing[col]
-                # make sure price is rounded
-                if col == "price" and old_value > 0:
-                    old_value = round(old_value, 2)
-                if col == "price" and new_value > 0:
-                    new_value = round(new_value, 2)
                 if old_value != new_value:
                     change = dict(
                         listing_id=item["listing_id"],

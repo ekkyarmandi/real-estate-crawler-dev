@@ -15,6 +15,7 @@ class Report(Base):
     source_name = Column(String(255), nullable=True)
     total_pages = Column(Integer, nullable=False, default=0)
     total_listings = Column(Integer, nullable=False, default=0)
+    total_actual_listings = Column(Integer, nullable=False, default=0)
     item_scraped_count = Column(Integer, nullable=False, default=0)
     item_dropped_count = Column(Integer, nullable=False, default=0)
     response_error_count = Column(Integer, nullable=False, default=0)

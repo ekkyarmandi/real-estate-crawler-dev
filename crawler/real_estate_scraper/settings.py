@@ -118,6 +118,9 @@ RETRY_TIMES = 10
 # Retry on most error codes since proxies fail for different reasons
 RETRY_HTTP_CODES = [500, 503, 504, 400, 403, 404, 408]
 
+# Custom settings
+LOAD_EXISTING_URLS = False
+
 # Set settings whose default value is deprecated to a future-proof value
 REQUEST_FINGERPRINTER_IMPLEMENTATION = "2.7"
 TWISTED_REACTOR = "twisted.internet.asyncioreactor.AsyncioSelectorReactor"

@@ -14,6 +14,7 @@ from models.user import User
 from models.queue import Queue
 from models.custom_listing import CustomListing
 from sqlalchemy import text
+import sys
 import dj_database_url
 import psycopg2
 import json
@@ -205,7 +206,16 @@ class ListingPipeline:
 
     def open_spider(self, spider):
         db = next(get_db())
+        # Load exisiting urls
+        if spider.settings.get("LOAD_EXISTING_URLS"):
+            q = text(
+                f"SELECT url FROM listings_listing WHERE url LIKE '%{spider.name}%';"
+            )
+            result = db.execute(q)
+            visited_urls = result.fetchall()
+            spider.visited_urls = [url[0] for url in visited_urls]
         try:
+            # Create new report
             report = Report(source_name=spider.name)
             db.add(report)
             db.commit()

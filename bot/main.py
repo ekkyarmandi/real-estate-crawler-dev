@@ -97,7 +97,8 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Query user
     db = next(get_db())
-    user = db.query(User).filter(User.username == update.message.chat.username).first()
+    chat_id = str(update.message.chat.id)
+    user = db.query(User).filter(User.chat_id == chat_id).first()
     # Convert user settings as message
     user_settings = json.loads(user.settings)
     await update.message.reply_text(
@@ -114,8 +115,8 @@ async def configure_settings_command(
         settings = context.user_data["settings"]
     else:
         db = next(get_db())
-        username = update.callback_query.message.chat.username
-        user = db.query(User).filter(User.username == username).first()
+        chat_id = str(update.callback_query.message.chat.id)
+        user = db.query(User).filter(User.chat_id == chat_id).first()
         settings = json.loads(user.settings)
         context.user_data["settings"] = settings
     settings_markup = create_settings_markup(settings)
@@ -249,8 +250,8 @@ async def update_size(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def save_settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if "settings" in context.user_data:
         db = next(get_db())
-        username = update.callback_query.message.chat.username
-        user = db.query(User).filter(User.username == username).first()
+        chat_id = str(update.callback_query.message.chat.id)
+        user = db.query(User).filter(User.chat_id == chat_id).first()
         new_settings = json.dumps(context.user_data["settings"])
         user.settings = new_settings
         db.commit()
@@ -261,8 +262,8 @@ async def save_settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def cancel_settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if "settings" in context.user_data:
         db = next(get_db())
-        username = update.callback_query.message.chat.username
-        user = db.query(User).filter(User.username == username).first()
+        chat_id = str(update.callback_query.message.chat.id)
+        user = db.query(User).filter(User.chat_id == chat_id).first()
         context.user_data["settings"] = json.loads(user.settings)
     return ConversationHandler.END
 

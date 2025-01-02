@@ -3,6 +3,7 @@ DEFAULT_SETTINGS = {
     "price": "50000-150000",
     "size": "45-120",
     "rooms": "3.0",
+    "is_enabled": True,
 }
 
 CITY_OPTIONS = [

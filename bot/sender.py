@@ -56,6 +56,7 @@ async def send_queues():
             "micro_location": queue.listing.micro_location,
             "size_m2": prop.size_m2,
             "rooms": prop.rooms,
+            "first_seen_at": queue.listing.first_seen_at,
         }
         listing = CustomListing(**listing_item)
         message = listing.as_markdown()

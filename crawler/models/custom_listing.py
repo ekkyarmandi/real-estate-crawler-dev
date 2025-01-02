@@ -29,6 +29,9 @@ class CustomListing:
         price_min, price_max = settings["price"].split("-")
         size_min, size_max = settings["size"].split("-")
         rooms = settings["rooms"]
+        is_enabled = settings.get("is_enabled", True)
+        if not is_enabled:
+            return False
         # is listing.city is contain settings.city?
         if self.city and not city in self.city:
             return False

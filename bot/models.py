@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime as dt
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, String, Text, DateTime, func, Boolean, ForeignKey, Float
@@ -65,6 +65,7 @@ class Listing(Base):
     price = Column(Float, nullable=False)
     municipality = Column(String(255), nullable=False)
     micro_location = Column(String(255), nullable=False)
+    first_seen_at = Column(DateTime, nullable=False)
 
     queues = relationship("Queue", back_populates="listing")
     property = relationship("Property", back_populates="listing")
@@ -100,9 +101,10 @@ class CustomListing:
         self.rooms = kwargs.get("rooms", 0.0)
         self.municipality = kwargs.get("municipality", "")
         self.micro_location = kwargs.get("micro_location", "")
+        self.first_seen_at = kwargs.get("first_seen_at", dt.now())
 
     def as_markdown(self):
-        publication_date = datetime.now().strftime("%Y-%m-%d")
+        publication_date = self.first_seen_at.strftime("%Y-%m-%d")
         location = f"{self.city} - {self.municipality} - {self.micro_location}"
         return (
             f"🏢 City: {self.city}\n"

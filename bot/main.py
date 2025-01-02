@@ -17,16 +17,18 @@ from sqlalchemy import text
 from models import User
 from constants import DEFAULT_SETTINGS, CITY_OPTIONS, ROOM_OPTIONS
 from func import (
-    create_select_city_options,
-    create_select_room_options,
     settings_as_message,
-    create_settings_markup,
     min_max_validator,
+)
+from markups import (
+    create_select_city_markup,
+    create_select_room_markup,
+    create_settings_markup,
+    create_enable_markup,
 )
 import json
 import uuid
 import logging
-import re
 
 TOKEN: Final = config("TELEGRAMBOT_TOKEN")
 
@@ -84,7 +86,12 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         db.rollback()
         logger.error(f"Error assigning user to database: {e}")
     # send hi to user
-    await update.message.reply_text(f"Hi! 👋🏼 @{username}")
+    message = (
+        f"Hi! 👋🏼 @{username}\n\n"
+        "I'm your real estate bot. I'll send you new listings in your area.\n"
+        "You can configure your /settings by clicking the ⚙️ button."
+    )
+    await update.message.reply_text(message)
 
 
 async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -136,7 +143,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if query.data == "configure":
         await configure_settings_command(update, context)
     elif query.data == "city":
-        reply_markup = create_select_city_options()
+        reply_markup = create_select_city_markup()
         message = dict(
             text="*Select city:*",
             reply_markup=reply_markup,
@@ -168,9 +175,21 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(text=message)
         return SIZE
     elif query.data == "rooms":
-        reply_markup = create_select_room_options()
+        reply_markup = create_select_room_markup()
         message = dict(
             text="*Select number of rooms:*",
+            reply_markup=reply_markup,
+            parse_mode=ParseMode.MARKDOWN_V2,
+        )
+        if update.callback_query:
+            await update.callback_query.edit_message_text(**message)
+        else:
+            await update.message.reply_text(**message)
+        return ConversationHandler.END
+    elif query.data == "is_enabled":
+        reply_markup = create_enable_markup()
+        message = dict(
+            text="*Enable or disable notifications:*",
             reply_markup=reply_markup,
             parse_mode=ParseMode.MARKDOWN_V2,
         )
@@ -195,6 +214,10 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return ConversationHandler.END
     if query.data in ROOM_OPTIONS:
         context.user_data["settings"]["rooms"] = query.data
+        await configure_settings_command(update, context)
+        return ConversationHandler.END
+    elif query.data in ["enable", "disable"]:
+        context.user_data["settings"]["is_enabled"] = query.data == "enable"
         await configure_settings_command(update, context)
         return ConversationHandler.END
 

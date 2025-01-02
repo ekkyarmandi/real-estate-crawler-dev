@@ -1,71 +1,18 @@
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-from constants import ROOM_OPTIONS, CITY_OPTIONS
 import re
 
 
 def settings_as_message(settings: dict) -> str:
+    is_enabled = "✅ *Enabled*" if settings.get("is_enabled", True) else "❌ *Disabled*"
     message = (
         "⚙️ *Settings*\n"
         f"🏢 *City:* {settings['city']}\n"
         f"💰 *Price:* {settings['price']} €\n"
         f"📏 *Size:* {settings['size']} m2\n"
         f"🏠 *Rooms:* {settings['rooms']}\n"
-        f"✅ *Enabled*\n"
+        f"{is_enabled}\n"
     )
     message = re.sub(r"([\-.])", r"\\\1", message)
     return message
-
-
-def create_settings_markup(settings: dict) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        [
-            [
-                InlineKeyboardButton(
-                    f"🏢 City: {settings['city']}", callback_data="city"
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    f"💰 Price: {settings['price']}",
-                    callback_data="price",
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    f"📏 Size: {settings['size']}",
-                    callback_data="size",
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    f"🏠 Rooms: {settings['rooms']}",
-                    callback_data="rooms",
-                )
-            ],
-            [
-                InlineKeyboardButton("❌ Cancel", callback_data="cancel"),
-                InlineKeyboardButton("💾 Save", callback_data="save"),
-            ],
-        ]
-    )
-
-
-def create_select_city_options():
-    return InlineKeyboardMarkup(
-        [
-            [InlineKeyboardButton(f"📍 {city}", callback_data=city)]
-            for city in CITY_OPTIONS
-        ]
-    )
-
-
-def create_select_room_options():
-    return InlineKeyboardMarkup(
-        [
-            [InlineKeyboardButton(f"🏠 {room}", callback_data=room)]
-            for room in ROOM_OPTIONS
-        ]
-    )
 
 
 def dint(value):

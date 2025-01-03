@@ -16,6 +16,8 @@ class Report(Base):
     total_pages = Column(Integer, nullable=False, default=0)
     total_listings = Column(Integer, nullable=False, default=0)
     total_actual_listings = Column(Integer, nullable=False, default=0)
+    total_new_listings = Column(Integer, nullable=False, default=0)
+    total_changed_listings = Column(Integer, nullable=False, default=0)
     item_scraped_count = Column(Integer, nullable=False, default=0)
     item_dropped_count = Column(Integer, nullable=False, default=0)
     response_error_count = Column(Integer, nullable=False, default=0)

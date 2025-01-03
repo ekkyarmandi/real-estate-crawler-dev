@@ -8,6 +8,8 @@ class BaseSpider(scrapy.Spider):
     is_paginating = False
     total_pages = 0
     total_listings = 0
+    total_new_listings = 0
+    total_changed_listings = 0
     visited_urls = []
 
     def handle_error(self, failure):

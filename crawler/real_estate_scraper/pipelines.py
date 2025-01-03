@@ -245,6 +245,8 @@ class ListingPipeline:
             report.total_actual_listings = total_actual_listings
             report.item_scraped_count = stats.get("item_scraped_count", 0)
             report.item_dropped_count = stats.get("item_dropped_count", 0)
+            report.total_new_listings = spider.total_new_listings
+            report.total_changed_listings = spider.total_changed_listings
             report.response_error_count = stats.get("log_count/ERROR", 0)
             report.elapsed_time_seconds = elapsed_time.total_seconds()
             db.commit()
@@ -478,7 +480,9 @@ class ListingChangePipeline:
             "short_description",
         ]
         listing = self.db.cursor.fetchone()
-        if listing:
+        if not listing:
+            spider.total_new_listings += 1
+        elif listing:
             raw_data_id = listing[-1]
             listing = dict(zip(columns, listing))
             # validate the price
@@ -544,6 +548,7 @@ class ListingChangePipeline:
                     )
                     change_items.append(list(change.values()))
             if len(change_items) > 0:
+                spider.total_changed_listings += 1
                 # execute query
                 q = """
                 INSERT INTO listings_listingchange (

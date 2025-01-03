@@ -101,6 +101,8 @@ class Report(TimestampedMixin, models.Model):
     total_pages = models.IntegerField()
     total_listings = models.IntegerField()
     total_actual_listings = models.IntegerField(default=0)
+    total_new_listings = models.IntegerField(default=0)
+    total_changed_listings = models.IntegerField(default=0)
     item_scraped_count = models.IntegerField()
     item_dropped_count = models.IntegerField()
     response_error_count = models.IntegerField()

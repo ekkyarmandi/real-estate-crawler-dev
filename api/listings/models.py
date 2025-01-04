@@ -49,6 +49,20 @@ class Property(TimestampedMixin, models.Model):
     class Meta:
         verbose_name = "Property"
         verbose_name_plural = "Properties"
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    "property_type",
+                    "building_type",
+                    "size_m2",
+                    "floor_number",
+                    "total_floors",
+                    "rooms",
+                    "property_state",
+                ],
+                name="unique_property_constraint",
+            )
+        ]
 
 
 class Image(TimestampedMixin, models.Model):

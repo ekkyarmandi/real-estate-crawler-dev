@@ -1,19 +1,22 @@
-from datetime import datetime
-import scrapy
+import json
 import math
 import re
 import uuid
+import scrapy
 import jmespath
 import traceback
+from decouple import config
 
 from real_estate_scraper.database import get_db
 from real_estate_scraper.spiders.base import BaseSpider
 from models.error import Error
 
+from scrapy.selector import Selector
+
 
 class A4zidaSpider(BaseSpider):
     name = "4zida"
-    allowed_domains = ["www.4zida.rs"]
+    allowed_domains = ["www.4zida.rs", "scraper-api.smartproxy.com"]
     start_urls = ["https://www.4zida.rs/prodaja-stanova/beograd"]
 
     def parse(self, response):
@@ -22,11 +25,22 @@ class A4zidaSpider(BaseSpider):
         urls = list(dict.fromkeys((urls)))
         for url in urls:
             if url not in self.visited_urls:
+                url = response.urljoin(url)
                 self.visited_urls.append(url)
-                yield response.follow(
-                    response.urljoin(url),
+                endpoint = "https://scraper-api.smartproxy.com/v2/scrape"
+                headers = {
+                    "accept": "application/json",
+                    "content-type": "application/json",
+                    "authorization": "Basic " + config("SMARTPROXY_API_KEY"),
+                }
+                yield scrapy.Request(
+                    url=endpoint,
+                    method="POST",
+                    headers=headers,
+                    body=json.dumps({"url": url}),
                     callback=self.parse_detail,
                     errback=self.handle_error,
+                    meta={"origin_url": url},
                 )
 
         # find total properties listed in the page, then create pagination
@@ -49,6 +63,9 @@ class A4zidaSpider(BaseSpider):
 
     def parse_detail(self, response):
         try:
+            html = jmespath.search("results[0].content", response.json())
+            origin_url = response.meta["origin_url"]
+            response = Selector(text=html)
             # find property data
             data = self.find_property_data(response)
             lonlat = self.find_longitude_latitude(response)
@@ -119,9 +136,9 @@ class A4zidaSpider(BaseSpider):
                 "valid_from": None,  # COMMENT: not sure which data point to look
                 "valid_to": None,  # COMMENT: not sure which data point to look
                 "total_views": 0,
-                "url": response.url,
+                "url": origin_url,
                 "raw_data": {
-                    "html": response.text,
+                    "html": html,
                     "data": {
                         "property_data": data,
                         "geolocation_data": lonlat,
@@ -176,7 +193,7 @@ class A4zidaSpider(BaseSpider):
         except Exception as e:
             db = next(get_db())
             error_data = Error(
-                url=response.url,
+                url=origin_url,
                 error_type="Spider",
                 error_message=str(e),
                 error_traceback=traceback.format_exc(),
@@ -200,7 +217,6 @@ class A4zidaSpider(BaseSpider):
         except TypeError:
             return {}
         except Exception as err:
-            # print(response.url, err)
             return {}
 
     def find_longitude_latitude(self, response):

@@ -6,16 +6,22 @@ import uuid
 import jmespath
 import json
 import traceback
+from decouple import config
+
 
 from real_estate_scraper.database import get_db
 from real_estate_scraper.decorators import json_finder
 from real_estate_scraper.spiders.base import BaseSpider
 from models.error import Error
+from scrapy.selector import Selector
 
 
 class HaloOglasiNekretnineSpider(BaseSpider):
     name = "halooglasi"
-    allowed_domains = ["www.halooglasi.com"]
+    allowed_domains = [
+        "www.halooglasi.com",
+        "scraper-api.smartproxy.com",
+    ]
     start_urls = ["https://www.halooglasi.com/nekretnine/prodaja-stanova/beograd"]
 
     def parse(self, response):
@@ -24,12 +30,25 @@ class HaloOglasiNekretnineSpider(BaseSpider):
             url = el.css("h3.product-title a::attr(href)").get()
             short_description = el.css("p.short-desc::text").get()
             if url not in self.visited_urls:
+                url = response.urljoin(url)
                 self.visited_urls.append(url)
-                yield response.follow(
-                    response.urljoin(url),
+                endpoint = "https://scraper-api.smartproxy.com/v2/scrape"
+                headers = {
+                    "accept": "application/json",
+                    "content-type": "application/json",
+                    "authorization": "Basic " + config("SMARTPROXY_API_KEY"),
+                }
+                yield scrapy.Request(
+                    url=endpoint,
+                    method="POST",
+                    headers=headers,
+                    body=json.dumps({"url": url}),
                     callback=self.parse_phonenumber,
-                    meta=dict(short_description=short_description),
                     errback=self.handle_error,
+                    meta={
+                        "origin_url": url,
+                        "short_description": short_description,
+                    },
                 )
 
         # paginate
@@ -53,9 +72,12 @@ class HaloOglasiNekretnineSpider(BaseSpider):
                 total_count = 0
 
     def parse_phonenumber(self, response):
-        elapsed_time = response.meta.get("download_latency")
-        property_data = self.find_property_data(response)
-        agency_data = self.find_agency_data(response)
+        origin_url = response.meta.get("origin_url")
+        short_description = response.meta.get("short_description")
+        response_text = jmespath.search("results[0].content", response.json())
+        selector = Selector(text=response_text)
+        property_data = self.find_property_data(selector)
+        agency_data = self.find_agency_data(selector)
 
         headers = {
             "content-type": "application/json",
@@ -74,18 +96,19 @@ class HaloOglasiNekretnineSpider(BaseSpider):
             meta={
                 "property_data": property_data,
                 "agency_data": agency_data,
-                "elapsed_time": elapsed_time,
-                "short_description": response.meta.get("short_description"),
-                "response_text": response.text,
-                "url": response.url,
+                "elapsed_time": 0,
+                "short_description": short_description,
+                "response_text": response_text,
+                "url": origin_url,
             },
             body=json.dumps(payload),
             callback=self.parse_detail,
+            errback=self.handle_error,
         )
 
     def parse_detail(self, response):
         try:
-            short_description = response.meta.get("short_description")
+            short_description = response.meta["short_description"]
             source_url = response.meta.get("url")
             response_text = response.meta.get("response_text")
             it_has_numbers = lambda x: re.search(r"\d{3}", x)

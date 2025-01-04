@@ -14,7 +14,7 @@ from datetime import datetime
 from decouple import config
 from database import get_db
 from sqlalchemy import text
-from models import User
+from models import User, CustomListing
 from constants import DEFAULT_SETTINGS, CITY_OPTIONS, ROOM_OPTIONS
 from func import (
     settings_as_message,
@@ -253,9 +253,48 @@ async def save_settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id = str(update.callback_query.message.chat.id)
         user = db.query(User).filter(User.chat_id == chat_id).first()
         new_settings = json.dumps(context.user_data["settings"])
-        user.settings = new_settings
-        db.commit()
-        db.refresh(user)
+        is_enabled = context.user_data["settings"].get("is_enabled", True)
+        if user.settings != new_settings and is_enabled:
+            user.settings = new_settings
+            db.commit()
+            db.refresh(user)
+            # send listings based on user settings changed
+            cols = [
+                "id",
+                "url",
+                "city",
+                "price",
+                "municipality",
+                "micro_location",
+                "size_m2",
+                "rooms",
+            ]
+            q = text(
+                f"""
+                SELECT
+                    listings.id,
+                    listings.url,
+                    listings.city as city,
+                    listings.price as price,
+                    listings.municipality,
+                    listings.micro_location,
+                    COALESCE(MAX(properties.size_m2), 0) AS size_m2,
+                    COALESCE(MAX(properties.rooms), 0) AS rooms
+                FROM listings_listing as listings
+                JOIN listings_property as properties ON listings.id = properties.listing_id
+                WHERE {user.settings_as_where_clause()}
+                GROUP BY listings.id LIMIT 10;
+                """
+            )
+            result = db.execute(q)
+            listings = result.fetchall()
+            # convert raw data into custom listings
+            listings = [dict(zip(cols, listing)) for listing in listings]
+            listings = [CustomListing(**item) for item in listings]
+            for listing in listings:
+                message = listing.as_markdown()
+                await update.callback_query.message.reply_text(text=message)
+
     return ConversationHandler.END
 
 

@@ -124,6 +124,13 @@ class A4zidaSpider(BaseSpider):
                     micro_location=x,
                 ),
             )
+
+            # refine the page data
+            if data.get("price"):
+                data["price"] = data["price"].replace(".", "")
+                data["price"] = data["price"].replace(",", ".")
+                data["price"] = float(data["price"])
+
             yield {
                 "listing_id": str(uuid.uuid4()),
                 "source_id": data.get("id"),

@@ -270,7 +270,12 @@ async def cancel_settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Handlers
 async def error(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(f"Error: {context.error}")
+    logger.error(f"Error: {context.error}")
+    try:
+        await update.message.reply_text(f"Error: {context.error}")
+    except Exception as e:
+        await update.callback_query.message.reply_text(f"Error: {context.error}")
+        logger.error(f"Error sending error message: {e}")
 
 
 if __name__ == "__main__":

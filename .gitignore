@@ -10,6 +10,7 @@ output.zip
 
 # dirs to ignore
 **/.venv/
+**/dev/
 **/Scripts/
 **/.dbeaver/
 **/.ropeproject/

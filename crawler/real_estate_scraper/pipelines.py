@@ -263,6 +263,10 @@ class RawDataPipeline:
         self.db = PostgreSQLConnection()
 
     def process_item(self, item, spider):
+        # clean up HTML data related to halooglasi
+        if "halooglasi" in item["url"]:
+            item["raw_data"]["html"] = ""
+        # COMMENT: figure out what 4zida criteria that would be allowed for raw data
         # construct raw data item
         raw_data_item = dict(
             listing_id=item["listing_id"],
@@ -485,12 +489,17 @@ class ListingChangePipeline:
         elif listing:
             raw_data_id = listing[-1]
             listing = dict(zip(columns, listing))
+
             # validate the price
-            price = listing["price"]
-            if not price:
-                listing["price"] = -1
+            old_price = listing.get("price")
+            if old_price:
+                try:
+                    listing["price"] = round(float(old_price), 2)
+                except (ValueError, TypeError):
+                    listing["price"] = -1
             else:
-                listing["price"] = round(float(listing["price"]), 2)
+                listing["price"] = -1
+
             # validate valid_from and valid_to
             if listing["valid_from"]:
                 listing["valid_from"] = listing["valid_from"].strftime(
@@ -502,18 +511,25 @@ class ListingChangePipeline:
                 listing["valid_to"] = listing["valid_to"].strftime(r"%Y-%m-%dT%H:%M:%S")
             else:
                 listing["valid_to"] = None
-            try:
-                valid_from = dt.strptime(item["valid_from"], r"%Y-%m-%dT%H:%M:%S.%fZ")
-            except ValueError:
-                valid_from = dt.strptime(item["valid_from"], r"%Y-%m-%dT%H:%M:%SZ")
-            except TypeError:
-                valid_from = None
-            try:
-                valid_to = dt.strptime(item["valid_to"], r"%Y-%m-%dT%H:%M:%S.%fZ")
-            except ValueError:
-                valid_to = dt.strptime(item["valid_to"], r"%Y-%m-%dT%H:%M:%SZ")
-            except TypeError:
-                valid_to = None
+
+            valid_from = item.get("valid_from")
+            if valid_from:
+                try:
+                    valid_from = dt.strptime(valid_from, r"%Y-%m-%dT%H:%M:%S.%fZ")
+                except ValueError:
+                    valid_from = dt.strptime(valid_from, r"%Y-%m-%dT%H:%M:%SZ")
+                except TypeError:
+                    valid_from = None
+
+            valid_to = item.get("valid_to")
+            if valid_to:
+                try:
+                    valid_to = dt.strptime(valid_to, r"%Y-%m-%dT%H:%M:%S.%fZ")
+                except ValueError:
+                    valid_to = dt.strptime(item["valid_to"], r"%Y-%m-%dT%H:%M:%SZ")
+                except TypeError:
+                    valid_to = None
+
             # construct listing change item by combining ListingItem with ListingChangeItem
             new_listing = dict(
                 price=item["price"],
@@ -528,10 +544,15 @@ class ListingChangePipeline:
                 short_description=item["short_description"],
             )
             # validate new listing values
-            try:
-                new_listing["price"] = round(float(new_listing["price"]), 2)
-            except (ValueError, TypeError):
+            new_price = new_listing.get("price")
+            if new_price:
+                try:
+                    new_listing["price"] = round(float(new_price), 2)
+                except (ValueError, TypeError):
+                    new_listing["price"] = -1
+            else:
                 new_listing["price"] = -1
+
             # check the changes
             change_items = []
             for col in ["price", "short_description", "detail_description"]:

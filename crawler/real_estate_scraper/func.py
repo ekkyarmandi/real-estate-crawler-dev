@@ -11,6 +11,19 @@ key = config("SUPABASE_KEY")
 supabase = create_client(url, key)
 
 
+def clean_double_quotes(text):
+    try:
+        target_text = re.search(r'"desc":\s*(.*?)\s*,"\w+"', text).group(1)
+        target_text = target_text.strip('"')
+        target_text = target_text.replace("“", '"')
+        target_text = target_text.replace("”", '"')
+        new_text = re.sub(r'"', r"'", target_text)
+        text = text.replace(target_text, new_text)
+    except Exception as e:
+        print("Error cleaning double quotes::clean_double_quotes::", e)
+    return text
+
+
 def raw_json_formatter(text):
     # attrs = re.findall(r'\w+=".*?"', text)
     # for old_cl in attrs:

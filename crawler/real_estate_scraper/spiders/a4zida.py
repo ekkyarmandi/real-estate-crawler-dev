@@ -7,6 +7,7 @@ import jmespath
 import traceback
 from decouple import config
 
+from real_estate_scraper.func import clean_double_quotes
 from real_estate_scraper.database import get_db
 from real_estate_scraper.spiders.base import BaseSpider
 from models.error import Error
@@ -126,10 +127,13 @@ class A4zidaSpider(BaseSpider):
             )
 
             # refine the page data
-            if data.get("price"):
-                data["price"] = data["price"].replace(".", "")
-                data["price"] = data["price"].replace(",", ".")
-                data["price"] = float(data["price"])
+            price = data.get("price")
+            if price:
+                if isinstance(price, str):
+                    price = price.replace(".", "")
+                    price = price.replace(",", ".")
+                    price = float(price)
+                data["price"] = price
 
             yield {
                 "listing_id": str(uuid.uuid4()),
@@ -138,7 +142,7 @@ class A4zidaSpider(BaseSpider):
                 "short_description": data.get("humanReadableDescription"),
                 "detail_description": data.get("desc", page["descriptions"]),
                 "price": data.get("price", page["price"]),
-                "price_currency": "EUR",  # TODO: find in HTML
+                "price_currency": "EUR",
                 "status": "active",
                 "valid_from": None,  # COMMENT: not sure which data point to look
                 "valid_to": None,  # COMMENT: not sure which data point to look
@@ -162,7 +166,7 @@ class A4zidaSpider(BaseSpider):
                     "total_floors": data.get(
                         "redactedTotalFloors", page["property"]["total_floors"]
                     ),
-                    "rooms": page["property"]["rooms"],  # TODO: find in HTML
+                    "rooms": page["property"]["rooms"],
                     "property_state": data.get("state"),
                 },
                 "address": {
@@ -210,33 +214,38 @@ class A4zidaSpider(BaseSpider):
 
     def find_property_data(self, response):
         script = response.css("script:contains('superIndividual')::Text").get()
-        try:
-            text = re.search(r"self.__next_f.push\(\[(.*?)\]\)", script).group(1)
-            text = re.sub(r'\\"', '"', text)
-            text = re.sub(r"\\n", "\n", text)
-            text = re.sub(r'".*?(\\").*?"', "", text)
-            text = re.sub(r"€", " EUR", text)
-            text = text.replace("null", "None")
-            text = text.replace("false", "False")
-            text = text.replace("true", "True")
-            text = text[3:-1]
-            return eval(text)
-        except TypeError:
-            return {}
-        except Exception as err:
-            return {}
+        output = {}
+        if script:
+            try:
+                text = re.search(r"self.__next_f.push\(\[(.*?)\]\)", script).group(1)
+                text = re.sub(r'\\{2,}"', '\\"', text)
+                text = re.sub(r'//{2,}"', "//", text)
+                text = re.sub(r'\\"', '"', text)
+                # text = re.sub(r"\\n", "\n", text)
+                text = re.sub(r'".*?(\\").*?"', "", text)
+                text = re.sub(r"€", " EUR", text)
+                new_text = text[3:-1]
+                new_text = clean_double_quotes(new_text)
+                output = json.loads(new_text)
+            except Exception as err:
+                output = {}
+        return output
 
     def find_longitude_latitude(self, response):
         script = response.css("script:contains('longitude')::Text").get()
-        try:
-            text = re.search(r"self.__next_f.push\(\[(.*?)\]\)", script).group(1)
-            text = re.sub(r'\\"', '"', text)
-            text = re.search(
-                r'"latitude":[0-9.]+\s*,\s*"longitude":[0-9.]+', text
-            ).group()
-            return eval("{" + text + "}")
-        except:
-            return {}
+        output = {}
+        if script:
+            try:
+                text = re.search(r"self.__next_f.push\(\[(.*?)\]\)", script).group(1)
+                text = re.sub(r'\\{2,}"', '\\"', text)
+                text = re.sub(r'\\"', '"', text)
+                text = re.search(
+                    r'"latitude":[0-9.]+\s*,\s*"longitude":[0-9.]+', text
+                ).group()
+                output = json.loads("{" + text + "}")
+            except:
+                output = {}
+        return output
 
     def get_images(self, data):
         images = []

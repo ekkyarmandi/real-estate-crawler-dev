@@ -3,9 +3,15 @@ from common.models import TimestampedMixin
 from bot.models import User
 
 
+class Source(TimestampedMixin, models.Model):
+    id = models.UUIDField(primary_key=True)
+    name = models.CharField(max_length=255)
+    base_url = models.CharField(max_length=255, unique=True)
+    scraper_config = models.TextField()
+
+
 class Listing(TimestampedMixin, models.Model):
     id = models.UUIDField(primary_key=True)
-    source_id = models.CharField(max_length=255)
     url = models.CharField(unique=True)
     title = models.CharField(max_length=255)
     short_description = models.TextField(null=True)
@@ -23,9 +29,10 @@ class Listing(TimestampedMixin, models.Model):
     micro_location = models.CharField(max_length=255, null=True)
     latitude = models.FloatField(null=True)
     longitude = models.FloatField(null=True)
+    source = models.ForeignKey(Source, on_delete=models.SET_NULL, null=True)
 
     def __str__(self):
-        return f"{self.source_id} - {self.url}"
+        return f"{self.source.name} - {self.url}"
 
 
 class RawData(TimestampedMixin, models.Model):
@@ -78,13 +85,6 @@ class Image(TimestampedMixin, models.Model):
                 fields=["url", "listing"], name="unique_url_listing"
             )
         ]
-
-
-class Source(TimestampedMixin, models.Model):
-    id = models.UUIDField(primary_key=True)
-    name = models.CharField(max_length=255)
-    base_url = models.CharField(max_length=255, unique=True)
-    scraper_config = models.TextField()
 
 
 class Seller(TimestampedMixin, models.Model):

@@ -13,6 +13,7 @@ from models.error import Report, Error
 from models.user import User
 from models.queue import Queue
 from models.custom_listing import CustomListing
+from models.seller import Seller
 from sqlalchemy import text
 import sys
 import dj_database_url
@@ -98,6 +99,49 @@ class SourcesPipeline:
         return item
 
 
+class SellersPipeline:
+    def __init__(self):
+        self.db = PostgreSQLConnection()
+
+    def process_item(self, item, spider):
+        # construct seller item
+        seller_type = item["seller"]["seller_type"]
+        if not seller_type:
+            seller_type = "person"
+        seller_name = jmespath.search("seller.name", item) or "Unknown Seller"
+        seller_item = Seller(
+            source_seller_id=item["seller"]["source_seller_id"],
+            name=seller_name,
+            seller_type=seller_type,
+            primary_phone=item["seller"]["primary_phone"],
+            primary_email=item["seller"]["primary_email"],
+            website=item["seller"]["website"],
+        )
+        # query existing seller based on seller_item
+        db = next(get_db())
+        existing_seller = (
+            db.query(Seller)
+            .filter(
+                Seller.source_seller_id == seller_item.source_seller_id,
+                Seller.name == seller_item.name,
+                Seller.seller_type == seller_item.seller_type,
+            )
+            .first()
+        )
+        if existing_seller:
+            item["seller"]["id"] = str(existing_seller.id)
+            return item
+        # execute query
+        try:
+            db.add(seller_item)
+            db.commit()
+        except Exception as err:
+            db.rollback()
+            raise ValueError("Seller insertion failed: {0}".format(err))
+        item["seller"]["id"] = str(seller_item.id)
+        return item
+
+
 class ListingPipeline:
     def __init__(self):
         self.db = PostgreSQLConnection()
@@ -163,6 +207,7 @@ class ListingPipeline:
         listing_item = dict(
             listing_id=item["listing_id"],
             source_id=item["source"]["id"],
+            seller_id=item["seller"]["id"],
             url=item["url"],
             title=item["title"],
             short_description=item["short_description"],
@@ -399,58 +444,6 @@ class ImagesPipeline:
         except Exception as err:
             self.db.conn.rollback()
             raise ValueError("Image insertion failed: {0}".format(err))
-        return item
-
-
-class SellersPipeline:
-    def __init__(self):
-        self.db = PostgreSQLConnection()
-
-    def process_item(self, item, spider):
-        # construct seller item
-        seller_type = item["seller"]["seller_type"]
-        if not seller_type:
-            seller_type = "person"
-        seller_name = jmespath.search("seller.name", item) or "Unknown Seller"
-        seller_item = dict(
-            source_id=item["source"]["id"],
-            source_seller_id=item["seller"]["source_seller_id"],
-            name=seller_name,
-            seller_type=seller_type,
-            primary_phone=item["seller"]["primary_phone"],
-            primary_email=item["seller"]["primary_email"],
-            website=item["seller"]["website"],
-        )
-        # write the insertion query
-        q = """
-        INSERT INTO listings_seller (
-            id, created_at, updated_at,
-            source_id,
-            source_seller_id,
-            name,
-            seller_type,
-            primary_phone,
-            primary_email,
-            website
-        ) VALUES (
-            uuid_generate_v4(), now(), now(),
-            %(source_id)s,
-            %(source_seller_id)s,
-            %(name)s,
-            %(seller_type)s,
-            %(primary_phone)s,
-            %(primary_email)s,
-            %(website)s
-        ) ON CONFLICT DO NOTHING;
-        """
-        # execute query
-        try:
-            self.db.cursor.execute(q, seller_item)
-            self.db.conn.commit()
-        except Exception as err:
-            self.db.conn.rollback()
-            raise ValueError("Seller insertion failed: {0}".format(err))
-        item.pop("raw_data")
         return item
 
 

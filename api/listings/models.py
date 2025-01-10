@@ -30,6 +30,7 @@ class Listing(TimestampedMixin, models.Model):
     latitude = models.FloatField(null=True)
     longitude = models.FloatField(null=True)
     source = models.ForeignKey(Source, on_delete=models.SET_NULL, null=True)
+    seller = models.ForeignKey("Seller", on_delete=models.SET_NULL, null=True)
 
     def __str__(self):
         return f"{self.source.name} - {self.url}"
@@ -89,7 +90,6 @@ class Image(TimestampedMixin, models.Model):
 
 class Seller(TimestampedMixin, models.Model):
     id = models.UUIDField(primary_key=True)
-    source = models.ForeignKey(Source, on_delete=models.SET_NULL, null=True)
     source_seller_id = models.CharField(max_length=255, null=True)
     name = models.CharField(max_length=255)
     seller_type = models.CharField(max_length=255)

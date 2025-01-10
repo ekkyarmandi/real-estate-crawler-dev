@@ -63,11 +63,11 @@ ITEM_PIPELINES = {
     #  "real_estate_scraper.local_pipelines.PropertyPipeline": 100,
     "real_estate_scraper.test_pipelines.TestOutputStructurePipeline": 50,
     "real_estate_scraper.pipelines.SourcesPipeline": 100,
-    "real_estate_scraper.pipelines.ListingPipeline": 200,
-    "real_estate_scraper.pipelines.RawDataPipeline": 300,
-    "real_estate_scraper.pipelines.PropertyPipeline": 400,
-    "real_estate_scraper.pipelines.ImagesPipeline": 500,
-    "real_estate_scraper.pipelines.SellersPipeline": 600,
+    "real_estate_scraper.pipelines.SellersPipeline": 200,
+    "real_estate_scraper.pipelines.ListingPipeline": 300,
+    "real_estate_scraper.pipelines.RawDataPipeline": 400,
+    "real_estate_scraper.pipelines.PropertyPipeline": 500,
+    "real_estate_scraper.pipelines.ImagesPipeline": 600,
     "real_estate_scraper.pipelines.ListingChangePipeline": 700,
 }
 

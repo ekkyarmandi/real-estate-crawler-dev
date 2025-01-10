@@ -6,6 +6,7 @@ INSERT INTO listings_listing (
     first_seen_at,
     last_seen_at,
     source_id,
+    seller_id,
     url,
     title,
     short_description,
@@ -28,6 +29,7 @@ INSERT INTO listings_listing (
     now(),
     now(),
     %(source_id)s,
+    %(seller_id)s,
     %(url)s,
     %(title)s,
     %(short_description)s,
@@ -43,5 +45,5 @@ INSERT INTO listings_listing (
     %(micro_location)s,
     %(latitude)s,
     %(longitude)s
-) ON CONFLICT (url) DO UPDATE SET last_seen_at = now();
+) ON CONFLICT (url) DO UPDATE SET last_seen_at = now(), seller_id = %(seller_id)s, source_id = %(source_id)s;
 """

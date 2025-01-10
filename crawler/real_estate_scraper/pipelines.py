@@ -122,7 +122,7 @@ class SellersPipeline:
         existing_seller = (
             db.query(Seller)
             .filter(
-                Seller.source_seller_id == seller_item.source_seller_id,
+                Seller.source_seller_id == str(seller_item.source_seller_id),
                 Seller.name == seller_item.name,
                 Seller.seller_type == seller_item.seller_type,
             )

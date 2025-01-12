@@ -22,7 +22,7 @@ import psycopg2
 import json
 import traceback
 import jmespath
-
+import uuid
 from real_estate_scraper.templates.sql.listing import listing_insert_query
 from real_estate_scraper.templates.sql.error import error_insert_query
 from models.property import Property
@@ -352,6 +352,7 @@ class PropertyPipeline:
 
         # construct property item
         property_item = dict(
+            id=uuid.uuid4(),
             listing_id=item["listing_id"],
             property_type=item["property"]["property_type"],
             building_type=item["property"]["building_type"],
@@ -369,13 +370,25 @@ class PropertyPipeline:
             if isinstance(value, str) and "+" in value:
                 property_item[col] = value.replace("+", "")
 
-        # Create new Property instance
-        new_property = Property(**property_item)
+        # write the insert query
+        q = """
+        INSERT INTO listings_property (
+            id, created_at, updated_at,
+            listing_id, property_type, building_type,
+            size_m2, floor_number, total_floors,
+            rooms, property_state
+        ) VALUES (
+            %(id)s, now(), now(),
+            %(listing_id)s, %(property_type)s, %(building_type)s,
+            %(size_m2)s, %(floor_number)s, %(total_floors)s,
+            %(rooms)s, %(property_state)s
+        ) ON CONFLICT DO NOTHING;
+        """
+        # execute the query
         try:
-            db.add(new_property)
-            db.commit()
-            db.refresh(new_property)
-            item["property"]["id"] = str(new_property.id)
+            self.db.cursor.execute(q, property_item)
+            self.db.conn.commit()
+            item["property"]["id"] = str(property_item["id"])
         except Exception as err:
             db.rollback()
             # Insert error to db

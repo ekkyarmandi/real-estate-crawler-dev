@@ -45,7 +45,7 @@ class RawData(TimestampedMixin, models.Model):
 
 class Property(TimestampedMixin, models.Model):
     id = models.UUIDField(primary_key=True)
-    listing = models.ForeignKey(Listing, on_delete=models.CASCADE)
+    listing = models.OneToOneField(Listing, on_delete=models.CASCADE)
     property_type = models.CharField(max_length=255, null=True)
     building_type = models.CharField(max_length=255, null=True)
     size_m2 = models.FloatField()
@@ -53,24 +53,6 @@ class Property(TimestampedMixin, models.Model):
     total_floors = models.IntegerField(null=True)
     rooms = models.FloatField(null=True)
     property_state = models.CharField(max_length=255, null=True)
-
-    class Meta:
-        verbose_name = "Property"
-        verbose_name_plural = "Properties"
-        constraints = [
-            models.UniqueConstraint(
-                fields=[
-                    "property_type",
-                    "building_type",
-                    "size_m2",
-                    "floor_number",
-                    "total_floors",
-                    "rooms",
-                    "property_state",
-                ],
-                name="unique_property_constraint",
-            )
-        ]
 
 
 class Image(TimestampedMixin, models.Model):

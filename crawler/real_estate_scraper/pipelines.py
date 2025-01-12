@@ -105,11 +105,24 @@ class SellersPipeline:
     def __init__(self):
         self.db = PostgreSQLConnection()
 
+    def __query_agent_data(self, agent_id):
+        db = next(get_db())
+        q = text(f"SELECT * FROM listings_agent WHERE agent_id = '{agent_id}';")
+        result = db.execute(q)
+        agent = result.fetchone()
+        return agent
+
     def process_item(self, item, spider):
         # construct seller item
         seller_type = item["seller"]["seller_type"]
+        registry_number = jmespath.search("seller.registry_number", item)
         if not seller_type:
             seller_type = "person"
+        elif seller_type == "agency" and registry_number:
+            # query agent data
+            agent = self.__query_agent_data(registry_number)
+            item["seller"]["agent_id"] = str(agent.id) if agent else None
+
         seller_name = jmespath.search("seller.name", item) or "Unknown Seller"
         seller_item = Seller(
             source_seller_id=item["seller"]["source_seller_id"],
@@ -118,6 +131,7 @@ class SellersPipeline:
             primary_phone=item["seller"]["primary_phone"],
             primary_email=item["seller"]["primary_email"],
             website=item["seller"]["website"],
+            agent_id=jmespath.search("seller.agent_id", item),
         )
         # query existing seller based on seller_item
         db = next(get_db())
@@ -131,12 +145,22 @@ class SellersPipeline:
             .first()
         )
         if existing_seller:
+            # update seller agent_id
+            agent_id = seller_item.agent_id
+            if agent_id:
+                q = text(
+                    f"UPDATE listings_seller SET agent_id = '{agent_id}' WHERE id = '{existing_seller.id}';"
+                )
+                db.execute(q)
+                db.commit()
+                db.refresh(existing_seller)
             item["seller"]["id"] = str(existing_seller.id)
             return item
         # execute query
         try:
             db.add(seller_item)
             db.commit()
+            print("Seller inserted successfully")
         except Exception as err:
             db.rollback()
             raise ValueError("Seller insertion failed: {0}".format(err))

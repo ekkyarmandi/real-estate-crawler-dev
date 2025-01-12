@@ -1,5 +1,6 @@
 import json
 import math
+import requests
 import re
 import uuid
 import scrapy
@@ -19,7 +20,7 @@ from scrapy.selector import Selector
 
 class A4zidaSpider(BaseSpider):
     name = "4zida"
-    allowed_domains = ["www.4zida.rs", "scraper-api.smartproxy.com"]
+    allowed_domains = ["www.4zida.rs", "api.4zida.rs", "scraper-api.smartproxy.com"]
     start_urls = ["https://www.4zida.rs/prodaja-stanova/beograd"]
 
     def parse(self, response):
@@ -62,7 +63,7 @@ class A4zidaSpider(BaseSpider):
             self.total_pages = total_pages
             for i in range(2, 101):
                 next_url = response.url.split("?")[0] + "?strana=" + str(i)
-                yield response.follow(next_url)
+                # yield response.follow(next_url)
 
     def parse_detail(self, response):
         try:
@@ -73,6 +74,8 @@ class A4zidaSpider(BaseSpider):
             data = self.find_property_data(response)
             lonlat = self.find_longitude_latitude(response)
             images = self.get_images(data)
+            agent_id = jmespath.search("author.agency.id", data)
+            registry_number = self.__get_register_number(agent_id)
             # assign data
             phonenumber = jmespath.search("author.phones[0].national", data)
             seller_name = jmespath.search("author.fullName", data)
@@ -202,6 +205,7 @@ class A4zidaSpider(BaseSpider):
                     "base_url": "https://www.4zida.rs",
                 },
                 "seller": {
+                    "registry_number": registry_number,
                     "source_seller_id": jmespath.search("author.id", data),
                     "name": seller_name if seller_name else page["seller"]["name"],
                     "seller_type": "agency" if data.get("advertiserType") else "other",
@@ -279,3 +283,11 @@ class A4zidaSpider(BaseSpider):
                 max_res = max(ad_jpegs.keys())
                 images.append(ad_jpegs.get(max_res))
         return images
+
+    def __get_register_number(self, agent_id):
+        url = f"https://api.4zida.rs/v6/agencies/{agent_id}/public?type=1"
+        response = requests.get(url)
+        if response.status_code == 200:
+            register_number = jmespath.search("registerNumber", response.json())
+            return register_number
+        return None

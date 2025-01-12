@@ -78,6 +78,41 @@ class Seller(TimestampedMixin, models.Model):
     primary_phone = models.CharField(max_length=255, null=True)
     primary_email = models.CharField(max_length=255, null=True)
     website = models.CharField(max_length=255, null=True)
+    agent = models.ForeignKey("Agent", on_delete=models.SET_NULL, null=True)
+
+    def __str__(self):
+        return f"{self.name} - {self.seller_type}"
+
+
+class Agent(TimestampedMixin, models.Model):
+    id = models.UUIDField(primary_key=True)
+    agent_id = models.CharField(max_length=255, null=True)
+    business_site_address = models.CharField(max_length=255, null=True)
+    company_manager = models.CharField(max_length=255, null=True)
+    company_owners = models.CharField(max_length=255, null=True)
+    company_type_id = models.CharField(max_length=255, null=True)
+    company_type_name = models.CharField(max_length=255, null=True)
+    email = models.CharField(max_length=255, null=True)
+    formal_owners_full_name = models.CharField(max_length=255, null=True)
+    hq_address = models.CharField(max_length=255, null=True)
+    identification_number = models.CharField(max_length=255, null=True)
+    insurance_contract_expiry_date = models.DateField(null=True)
+    insurance_expiry = models.BooleanField(default=False)
+    insurance_expiry_within_month = models.BooleanField(default=False)
+    main_activity = models.CharField(max_length=255, null=True)
+    name = models.CharField(max_length=255)
+    owner_full_name = models.CharField(max_length=255, null=True)
+    owner_national_number = models.CharField(max_length=255, null=True)
+    registry_date = models.DateField(null=True)
+    registry_number = models.CharField(max_length=255, null=True)
+    registry_statement_date = models.DateField(null=True)
+    registry_statement_number = models.CharField(max_length=255, null=True)
+    representatives_full_name = models.CharField(max_length=255, null=True)
+    tax_number = models.CharField(max_length=255, null=True)
+    web_page = models.CharField(max_length=255, null=True)
+
+    def __str__(self):
+        return f"{self.name} - {self.seller_type}"
 
 
 class ListingChange(TimestampedMixin, models.Model):

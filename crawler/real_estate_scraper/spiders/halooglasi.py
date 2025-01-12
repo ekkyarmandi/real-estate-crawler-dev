@@ -9,11 +9,14 @@ import traceback
 from decouple import config
 
 
+from real_estate_scraper.items import PropertyItem
+from real_estate_scraper.func import find_agency
 from real_estate_scraper.database import get_db
 from real_estate_scraper.decorators import json_finder
 from real_estate_scraper.spiders.base import BaseSpider
 from models.error import Error
 from scrapy.selector import Selector
+from scrapy.loader import ItemLoader
 
 
 class HaloOglasiNekretnineSpider(BaseSpider):
@@ -126,6 +129,75 @@ class HaloOglasiNekretnineSpider(BaseSpider):
                 map(lambda x: root_url + x, property_data.get("ImageURLs"))
             )
 
+            # parse property item
+            selector = Selector(text=response_text)
+            ploader = ItemLoader(item=PropertyItem(), selector=selector)
+            ploader.add_value(
+                "property_type",
+                jmespath.search("OtherFields.tip_nekretnine_s", property_data),
+            )
+            ploader.add_value(
+                "building_type",
+                jmespath.search("OtherFields.tip_objekta_s", property_data),
+            )
+            ploader.add_value(
+                "size_m2",
+                jmespath.search("OtherFields.kvadratura_d", property_data),
+            )
+            ploader.add_value(
+                "floor_number",
+                jmespath.search("OtherFields.sprat_s", property_data),
+            )
+            ploader.add_value(
+                "total_floors",
+                jmespath.search("OtherFields.sprat_od_s", property_data),
+            )
+            ploader.add_value(
+                "rooms",
+                jmespath.search("OtherFields.broj_soba_s", property_data),
+            )
+            ploader.add_value(
+                "property_state",
+                jmespath.search("OtherFields.stanje_objekta_s", property_data),
+            )
+
+            # define seller type
+            agency_reg_number = agency_data.get("NumberInRegister")
+            seller_type = "agency" if agency_reg_number else None
+            if agency_reg_number:
+                agency = find_agency(agency_reg_number)
+                seller = {
+                    "source_seller_id": agency.get("id"),
+                    "name": agency.get("name"),
+                    "registry_number": agency.get("registryNumber"),
+                    "seller_type": seller_type,
+                    # "license_id": None,
+                    "tax_id": agency.get("taxNumber"),
+                    "primary_phone": phonenumber,
+                    "primary_email": agency.get("eMail"),
+                    "website": agency.get("webPage"),
+                    # "verified": None,
+                    # "rating": None,
+                    # "total_listings": None,
+                    "active_since": agency.get("05/02/2021"),
+                }
+            else:
+                seller = {
+                    "source_seller_id": property_data.get("AdvertiserId"),
+                    "name": jmespath.search("Advertiser.DisplayName", agency_data),
+                    # COMMENT: if there's number in register put seller type as 'agency'
+                    "seller_type": seller_type,
+                    # "license_id": None,
+                    "tax_id": None,
+                    "primary_phone": phonenumber,
+                    "primary_email": None,
+                    "website": agency_data["WebAddress"],
+                    # "verified": None,
+                    # "rating": None,
+                    # "total_listings": None, # TODO: calculate total listings
+                    "active_since": None,
+                }
+
             yield {
                 "listing_id": str(uuid.uuid4()),
                 "source_id": property_data.get("Id"),
@@ -154,42 +226,43 @@ class HaloOglasiNekretnineSpider(BaseSpider):
                     },
                 },
                 ## additional data
-                "property": {
-                    "property_type": jmespath.search(
-                        "OtherFields.tip_nekretnine_s", property_data
-                    ),
-                    "building_type": jmespath.search(
-                        "OtherFields.tip_objekta_s", property_data
-                    ),
-                    "size_m2": jmespath.search(
-                        "OtherFields.kvadratura_d", property_data
-                    ),
-                    "floor_number": jmespath.search(
-                        "OtherFields.sprat_s", property_data
-                    ),
-                    # COMMENT: sometime it's not available (sprat_od_s)
-                    "total_floors": jmespath.search(
-                        "OtherFields.sprat_od_s", property_data
-                    ),
-                    "rooms": jmespath.search("OtherFields.broj_soba_s", property_data),
-                    # COMMENT: sometime it's not available (stanje_objekta_s)
-                    "property_state": jmespath.search(
-                        "OtherFields.stanje_objekta_s", property_data
-                    ),
-                    # "heating_type": jmespath.search("OtherFields.grejanje_s", property_data),
-                    # "orientation": None,
-                    # Note: Skip for the next iterations
-                    # "has": [
-                    #     # QUESTIONS: how I can find this data?
-                    #     # ANSWER: OtherFields.ostalo_ss
-                    #     {
-                    #         "id": str(uuid.uuid4()),
-                    #         # "feature_type": None,
-                    #         "feature_value": None,
-                    #         "created_at": now,
-                    #     }
-                    # ],
-                },
+                "property": ploader.load_item(),
+                # "property": {
+                #     "property_type": jmespath.search(
+                #         "OtherFields.tip_nekretnine_s", property_data
+                #     ),
+                #     "building_type": jmespath.search(
+                #         "OtherFields.tip_objekta_s", property_data
+                #     ),
+                #     "size_m2": jmespath.search(
+                #         "OtherFields.kvadratura_d", property_data
+                #     ),
+                #     "floor_number": jmespath.search(
+                #         "OtherFields.sprat_s", property_data
+                #     ),
+                #     # COMMENT: sometime it's not available (sprat_od_s)
+                #     "total_floors": jmespath.search(
+                #         "OtherFields.sprat_od_s", property_data
+                #     ),
+                #     "rooms": jmespath.search("OtherFields.broj_soba_s", property_data),
+                #     # COMMENT: sometime it's not available (stanje_objekta_s)
+                #     "property_state": jmespath.search(
+                #         "OtherFields.stanje_objekta_s", property_data
+                #     ),
+                #     "heating_type": jmespath.search("OtherFields.grejanje_s", property_data),
+                #     "orientation": None,
+                #     # Note: Skip for the next iterations
+                #     "has": [
+                #         # QUESTIONS: how I can find this data?
+                #         # ANSWER: OtherFields.ostalo_ss
+                #         {
+                #             "id": str(uuid.uuid4()),
+                #             # "feature_type": None,
+                #             "feature_value": None,
+                #             "created_at": now,
+                #         }
+                #     ],
+                # },
                 "address": {
                     "city": jmespath.search("OtherFields.grad_s", property_data),
                     "municipality": jmespath.search(
@@ -206,23 +279,7 @@ class HaloOglasiNekretnineSpider(BaseSpider):
                     "name": "Halo Oglasi Nekretnine",
                     "base_url": "https://www.halooglasi.com",
                 },
-                "seller": {
-                    "source_seller_id": property_data.get("AdvertiserId"),
-                    "name": jmespath.search("Advertiser.DisplayName", agency_data),
-                    # COMMENT: if there's number in register put seller type as 'agency'
-                    "seller_type": (
-                        "agency" if agency_data.get("NumberInRegister") else None
-                    ),
-                    # "license_id": None,
-                    # "tax_id": None,
-                    "primary_phone": phonenumber,
-                    "primary_email": None,
-                    "website": agency_data["WebAddress"],
-                    # "verified": None,
-                    # "rating": None,
-                    # "total_listings": None,
-                    # "active_since": None,
-                },
+                "seller": seller,
                 "images": image_urls,
                 # has -> properties table
                 # addresses -> addresses table

@@ -8,6 +8,8 @@
 from scrapy.exceptions import DropItem
 from datetime import datetime as dt
 from decouple import config
+from real_estate_scraper.func import change_value_to_set
+from models.listing_change import PreviousListing
 from real_estate_scraper.database import get_db
 from models.error import Report, Error
 from models.user import User
@@ -15,7 +17,6 @@ from models.queue import Queue
 from models.custom_listing import CustomListing
 from models.seller import Seller
 from sqlalchemy import text
-import sys
 import dj_database_url
 import psycopg2
 import json
@@ -24,6 +25,7 @@ import jmespath
 
 from real_estate_scraper.templates.sql.listing import listing_insert_query
 from real_estate_scraper.templates.sql.error import error_insert_query
+from models.property import Property
 
 
 def keep_url_only(item):
@@ -338,6 +340,16 @@ class PropertyPipeline:
         self.db = PostgreSQLConnection()
 
     def process_item(self, item, spider):
+        # Query existing property
+        db = next(get_db())
+        existing_property = (
+            db.query(Property).filter(Property.listing_id == item["listing_id"]).first()
+        )
+
+        if existing_property:
+            item["property"]["id"] = str(existing_property.id)
+            return item
+
         # construct property item
         property_item = dict(
             listing_id=item["listing_id"],
@@ -349,55 +361,32 @@ class PropertyPipeline:
             rooms=item["property"]["rooms"],
             property_state=item["property"]["property_state"],
         )
-        columns = [
-            "size_m2",
-            "floor_number",
-            "total_floors",
-            "rooms",
-        ]
+
+        # Clean up values containing "+"
+        columns = ["size_m2", "floor_number", "total_floors", "rooms"]
         for col in columns:
             value = property_item[col]
             if isinstance(value, str) and "+" in value:
                 property_item[col] = value.replace("+", "")
-        # write the insert query
-        q = """
-        INSERT INTO listings_property (
-            id, created_at, updated_at,
-            listing_id,
-            property_type,
-            building_type,
-            size_m2,
-            floor_number,
-            total_floors,
-            rooms,
-            property_state
-        ) VALUES (
-            uuid_generate_v4(), now(), now(),
-            %(listing_id)s,
-            %(property_type)s,
-            %(building_type)s,
-            %(size_m2)s,
-            %(floor_number)s,
-            %(total_floors)s,
-            %(rooms)s,
-            %(property_state)s
-        ) ON CONFLICT DO NOTHING;
-        """
-        # execute query
+
+        # Create new Property instance
+        new_property = Property(**property_item)
         try:
-            self.db.cursor.execute(q, property_item)
-            self.db.conn.commit()
+            db.add(new_property)
+            db.commit()
+            db.refresh(new_property)
+            item["property"]["id"] = str(new_property.id)
         except Exception as err:
-            self.db.conn.rollback()
+            db.rollback()
             # Insert error to db
-            error_item = dict(
+            error = Error(
                 url=item["url"],
                 error_type="Property insertion",
                 error_message=str(err),
                 error_traceback=traceback.format_exc(),
             )
-            self.db.cursor.execute(error_insert_query, error_item)
-            self.db.conn.commit()
+            db.add(error)
+            db.commit()
             raise DropItem("Error on property insertion: {0}".format(err))
         return item
 
@@ -475,86 +464,24 @@ class ListingChangePipeline:
             "valid_to",
             "detail_description",
             "short_description",
+            "raw_data_id",
         ]
-        listing = self.db.cursor.fetchone()
+        listing = self.db.cursor.fetchone()  # existing listing
         if not listing:
             spider.total_new_listings += 1
         elif listing:
-            raw_data_id = listing[-1]
             listing = dict(zip(columns, listing))
-
-            # validate the price
-            old_price = listing.get("price")
-            if old_price:
-                try:
-                    listing["price"] = round(float(old_price), 2)
-                except (ValueError, TypeError):
-                    listing["price"] = -1
-            else:
-                listing["price"] = -1
-
-            # validate valid_from and valid_to
-            if listing["valid_from"]:
-                listing["valid_from"] = listing["valid_from"].strftime(
-                    r"%Y-%m-%dT%H:%M:%S"
-                )
-            else:
-                listing["valid_from"] = None
-            if listing["valid_to"]:
-                listing["valid_to"] = listing["valid_to"].strftime(r"%Y-%m-%dT%H:%M:%S")
-            else:
-                listing["valid_to"] = None
-
-            valid_from = item.get("valid_from")
-            if valid_from:
-                try:
-                    valid_from = dt.strptime(valid_from, r"%Y-%m-%dT%H:%M:%S.%fZ")
-                except ValueError:
-                    valid_from = dt.strptime(valid_from, r"%Y-%m-%dT%H:%M:%SZ")
-                except TypeError:
-                    valid_from = None
-
-            valid_to = item.get("valid_to")
-            if valid_to:
-                try:
-                    valid_to = dt.strptime(valid_to, r"%Y-%m-%dT%H:%M:%S.%fZ")
-                except ValueError:
-                    valid_to = dt.strptime(item["valid_to"], r"%Y-%m-%dT%H:%M:%SZ")
-                except TypeError:
-                    valid_to = None
-
-            # construct listing change item by combining ListingItem with ListingChangeItem
-            new_listing = dict(
-                price=item["price"],
-                status=item["status"],
-                valid_from=(
-                    valid_from.strftime(r"%Y-%m-%dT%H:%M:%S") if valid_from else None
-                ),
-                valid_to=(
-                    valid_to.strftime(r"%Y-%m-%dT%H:%M:%S") if valid_to else None
-                ),
-                detail_description=item["detail_description"],
-                short_description=item["short_description"],
-            )
-            # validate new listing values
-            new_price = new_listing.get("price")
-            if new_price:
-                try:
-                    new_listing["price"] = round(float(new_price), 2)
-                except (ValueError, TypeError):
-                    new_listing["price"] = -1
-            else:
-                new_listing["price"] = -1
-
+            previous_listing = PreviousListing(**listing)
+            new_listing = PreviousListing(**item)
             # check the changes
             change_items = []
             for col in ["price", "short_description", "detail_description"]:
-                old_value = listing[col]
-                new_value = new_listing[col]
+                old_value = getattr(previous_listing, col)
+                new_value = getattr(new_listing, col)
                 if old_value != new_value:
                     change = dict(
                         listing_id=item["listing_id"],
-                        raw_data_id=raw_data_id,
+                        raw_data_id=previous_listing.raw_data_id,
                         change_type=f"{col}_change",
                         field=col,
                         old_value=old_value,
@@ -575,19 +502,26 @@ class ListingChangePipeline:
                     new_value,
                     changed_at
                 ) VALUES (
-                    uuid_generate_v4(), now(), now(),
-                    %s,
-                    %s,
-                    %s,
-                    %s,
-                    %s,
-                    %s,
-                    now()
+                    uuid_generate_v4(), now(), now(), %s, %s, %s, %s, %s, %s, now()
                 ) ON CONFLICT DO NOTHING;
                 """
                 # execute query
                 try:
                     self.db.cursor.executemany(q, change_items)
+                    self.db.conn.commit()
+                    # convert the new_value to SET clause
+                    new_values = {}
+                    for change in change_items:
+                        new_values.update({change[3]: change[4]})
+                    set_clause = ", ".join(
+                        [f"{k} = %({k})s" for k in new_values.keys()]
+                    )
+                    # update the updated_at field on the listings table
+                    q = f"""
+                    UPDATE listings_listing SET updated_at = now(), {set_clause}
+                    WHERE id = '{item["listing_id"]}';
+                    """
+                    self.db.cursor.execute(q, new_values)
                     self.db.conn.commit()
                 except Exception as err:
                     self.db.conn.rollback()

@@ -1,3 +1,6 @@
+from real_estate_scraper.items import PropertyItem
+
+
 class TestOutputStructurePipeline:
     REQUIRED_STRUCTURE = {
         "listing_id": str,
@@ -17,9 +20,9 @@ class TestOutputStructurePipeline:
             "property_type": (str, type(None)),
             "building_type": (str, type(None)),
             "size_m2": (str, int, float, type(None)),
-            "floor_number": (str, int, type(None)),
+            "floor_number": (str, float, type(None)),
             "total_floors": (str, int, type(None)),
-            "rooms": (str, int, type(None)),
+            "rooms": (str, float, type(None)),
             "property_state": (str, type(None)),
         },
         "address": {
@@ -38,9 +41,11 @@ class TestOutputStructurePipeline:
             "source_seller_id": (str, int, type(None)),
             "name": (str, type(None)),
             "seller_type": (str, type(None)),
+            "tax_id": (str, type(None)),
             "primary_phone": (str, type(None)),
             "primary_email": (str, type(None)),
             "website": (str, type(None)),
+            "active_since": (str, type(None)),
         },
         "images": list,
     }

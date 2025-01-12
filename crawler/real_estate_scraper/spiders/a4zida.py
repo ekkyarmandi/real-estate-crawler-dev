@@ -10,6 +10,8 @@ from decouple import config
 from real_estate_scraper.func import clean_double_quotes
 from real_estate_scraper.database import get_db
 from real_estate_scraper.spiders.base import BaseSpider
+from real_estate_scraper.items import PropertyItem
+from scrapy.loader import ItemLoader
 from models.error import Error
 
 from scrapy.selector import Selector
@@ -97,20 +99,6 @@ class A4zidaSpider(BaseSpider):
                     r"[0-9.,]+"
                 ),
                 descriptions="\n\n".join(descriptions),
-                property=dict(
-                    size_m2=response.css(
-                        "strong:contains('m²'),strong:contains('m2')"
-                    ).re_first(r"[0-9.,]+"),
-                    rooms=response.css(
-                        "strong:contains('rooms'),strong:contains('sobe')"
-                    ).re_first(r"[0-9.,]+"),
-                    floor_number=response.css("strong:contains('sprata')").re_first(
-                        r"([0-9.,]+)/"
-                    ),
-                    total_floors=response.css("strong:contains('sprata')").re_first(
-                        r"/([0-9.,]+)"
-                    ),
-                ),
                 seller=dict(
                     name=response.css(
                         "section[test-data=author-info] span::text"
@@ -135,6 +123,42 @@ class A4zidaSpider(BaseSpider):
                     price = float(price)
                 data["price"] = price
 
+            # parse property item
+            ploader = ItemLoader(item=PropertyItem(), selector=response)
+            ploader.add_value("property_type", data.get("type"))
+            ploader.add_value("building_type", data.get("category"))
+            ploader.add_value("property_state", data.get("state"))
+            ploader.add_css(
+                "size_m2",
+                "strong:contains('m²'),strong:contains('m2')",
+                re=r"[0-9.,]+",
+            )
+            ploader.add_css(
+                "floor_number",
+                "strong:contains('sprat')::text",
+                re=r"([0-9.,]+)/",
+            )
+            ploader.add_css(
+                "total_floors",
+                "strong:contains('sprat')::text",
+                re=r"/([0-9.,]+)",
+            )
+            ploader.add_css(
+                "rooms",
+                "strong:contains('rooms'),strong:contains('sobe')",
+                re=r"[0-9.,]+",
+            )
+            pitem = dict(ploader.load_item())
+            property_item = {
+                "property_type": pitem.get("property_type"),
+                "building_type": pitem.get("building_type"),
+                "size_m2": pitem.get("size_m2"),
+                "floor_number": pitem.get("floor_number"),
+                "total_floors": pitem.get("total_floors"),
+                "rooms": pitem.get("rooms"),
+                "property_state": pitem.get("property_state"),
+            }
+
             yield {
                 "listing_id": str(uuid.uuid4()),
                 "source_id": data.get("id"),
@@ -156,19 +180,7 @@ class A4zidaSpider(BaseSpider):
                     },
                 },
                 ## additional data
-                "property": {
-                    "property_type": data.get("type"),
-                    "building_type": data.get("category"),
-                    "size_m2": data.get("m2", page["property"]["size_m2"]),
-                    "floor_number": data.get(
-                        "redactedFloor", page["property"]["floor_number"]
-                    ),
-                    "total_floors": data.get(
-                        "redactedTotalFloors", page["property"]["total_floors"]
-                    ),
-                    "rooms": page["property"]["rooms"],
-                    "property_state": data.get("state"),
-                },
+                "property": property_item,
                 "address": {
                     "city": city if city else page["address"]["city"],
                     "municipality": (
@@ -198,6 +210,8 @@ class A4zidaSpider(BaseSpider):
                     ),
                     "primary_email": jmespath.search("author.agency.email", data),
                     "website": None,
+                    "active_since": None,
+                    "tax_id": None,
                 },
                 "images": images,
             }

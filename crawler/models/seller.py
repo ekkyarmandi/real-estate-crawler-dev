@@ -1,19 +1,14 @@
-from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy import Column, DateTime, func, Boolean, String, ForeignKey
 import uuid
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Column, String, ForeignKey
+from sqlalchemy.orm import relationship
+from models.base import Base, TimestampMixin
 
-Base = declarative_base()
 
-
-class Seller(Base):
+class Seller(Base, TimestampMixin):
     __tablename__ = "listings_seller"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    created_at = Column(DateTime, nullable=False, default=func.now())
-    updated_at = Column(
-        DateTime, nullable=False, default=func.now(), onupdate=func.now()
-    )
     source_seller_id = Column(String, nullable=False)
     name = Column(String, nullable=False)
     seller_type = Column(String, nullable=False)
@@ -23,6 +18,9 @@ class Seller(Base):
     agent_id = Column(
         UUID(as_uuid=True), ForeignKey("listings_agent.id"), nullable=True
     )
+
+    agent = relationship("Agent", back_populates="sellers")
+    # listings = relationship("Listing", back_populates="seller")
 
     def __repr__(self):
         return f"<Seller {self.name}>"

@@ -15,7 +15,7 @@ from models.error import Report, Error
 from models.user import User
 from models.queue import Queue
 from models.custom_listing import CustomListing
-from models.seller import Seller
+from models import Agent, Seller
 from sqlalchemy import text
 import dj_database_url
 import psycopg2
@@ -549,16 +549,15 @@ class ListingChangePipeline:
                     # convert the new_value to SET clause
                     new_values = {}
                     for change in change_items:
-                        new_values.update({change[3]: change[4]})
-                    set_clause = ", ".join(
-                        [f"{k} = %({k})s" for k in new_values.keys()]
-                    )
+                        new_values.update({change[3]: change[5]})
+                    set_clause = ", ".join([f"{k} = %s" for k in new_values.keys()])
                     # update the updated_at field on the listings table
+                    listing_id = item["listing_id"]
                     q = f"""
-                    UPDATE listings_listing SET updated_at = now(), {set_clause}
-                    WHERE id = '{item["listing_id"]}';
+                    UPDATE listings_listing SET updated_at=now(), {set_clause}
+                    WHERE id='{listing_id}';
                     """
-                    self.db.cursor.execute(q, new_values)
+                    self.db.cursor.execute(q, list(new_values.values()))
                     self.db.conn.commit()
                 except Exception as err:
                     self.db.conn.rollback()

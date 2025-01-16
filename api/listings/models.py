@@ -48,7 +48,7 @@ class Property(TimestampedMixin, models.Model):
     listing = models.OneToOneField(Listing, on_delete=models.CASCADE)
     property_type = models.CharField(max_length=255, null=True)
     building_type = models.CharField(max_length=255, null=True)
-    size_m2 = models.FloatField()
+    size_m2 = models.FloatField(null=True)
     floor_number = models.CharField(max_length=255, null=True)
     total_floors = models.IntegerField(null=True)
     rooms = models.FloatField(null=True)

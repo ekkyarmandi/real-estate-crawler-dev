@@ -121,16 +121,19 @@ class SellersPipeline:
         elif seller_type == "agency" and registry_number:
             # query agent data
             agent = self.__query_agent_data(registry_number)
-            item["seller"]["agent_id"] = str(agent.id) if agent else None
+            if agent:
+                item["seller"]["agent_id"] = str(agent.id)
+            else:
+                item["seller"]["agent_id"] = None
 
         seller_name = jmespath.search("seller.name", item) or "Unknown Seller"
         seller_item = Seller(
-            source_seller_id=item["seller"]["source_seller_id"],
+            source_seller_id=jmespath.search("seller.source_seller_id", item),
             name=seller_name,
             seller_type=seller_type,
-            primary_phone=item["seller"]["primary_phone"],
-            primary_email=item["seller"]["primary_email"],
-            website=item["seller"]["website"],
+            primary_phone=jmespath.search("seller.primary_phone", item),
+            primary_email=jmespath.search("seller.primary_email", item),
+            website=jmespath.search("seller.website", item),
             agent_id=jmespath.search("seller.agent_id", item),
         )
         # query existing seller based on seller_item
@@ -160,7 +163,6 @@ class SellersPipeline:
         try:
             db.add(seller_item)
             db.commit()
-            print("Seller inserted successfully")
         except Exception as err:
             db.rollback()
             raise ValueError("Seller insertion failed: {0}".format(err))

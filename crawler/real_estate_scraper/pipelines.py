@@ -550,6 +550,8 @@ class ListingChangePipeline:
                     new_values = {}
                     for change in change_items:
                         new_values.update({change[3]: change[5]})
+                    if "price" in new_values and not new_values["price"]:
+                        new_values["price"] = -1
                     set_clause = ", ".join([f"{k} = %s" for k in new_values.keys()])
                     # update the updated_at field on the listings table
                     listing_id = item["listing_id"]

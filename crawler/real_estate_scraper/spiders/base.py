@@ -14,8 +14,12 @@ class BaseSpider(scrapy.Spider):
 
     def handle_error(self, failure):
         db = next(get_db())
+        try:
+            url = self.url
+        except:
+            url = failure.request.url
         error_data = Error(
-            url=self.url,
+            url=url,
             error_type="Spider",
             error_message=str(failure),
             error_traceback=traceback.format_exc(),

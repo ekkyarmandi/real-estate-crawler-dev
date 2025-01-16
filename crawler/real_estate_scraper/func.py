@@ -39,19 +39,6 @@ def raw_json_formatter(text):
     return text
 
 
-def find_agency(reg_id: str | int) -> dict:
-    # load the csv file
-    csv_file = "real_estate_scraper/data/20250109.csv"
-    with open(csv_file, "r") as file:
-        # convert to dict
-        reader = csv.DictReader(file)
-        for row in reader:
-            # find the agency by reg_id
-            if row["registryNumber"] == str(reg_id):
-                return row
-    return None
-
-
 def change_value_to_set(field: str, value: str) -> str:
     if field != "price":
         return f"'{value}'"
@@ -82,16 +69,3 @@ def supabase_uploader(url: str, path: str) -> str:
     finally:
         if os.path.exists(filename):
             os.remove(filename)
-
-
-def dev():
-    reg_id = 1288
-    agency = find_agency(reg_id)
-    pprint(agency)
-    # url = "https://img.halooglasi.com/slike/oglasi/Thumbs/241217/m/zemun-1-0-adaptibilan-u-1-5-opremljen-5425645066499-71810303782.jpg"
-    # source_url = supabase_uploader(url, "halooglasi_test")
-    # print(source_url)
-
-
-if __name__ == "__main__":
-    dev()

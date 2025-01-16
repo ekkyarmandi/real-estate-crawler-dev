@@ -10,10 +10,10 @@ from decouple import config
 
 
 from real_estate_scraper.items import PropertyItem
-from real_estate_scraper.func import find_agency
 from real_estate_scraper.database import get_db
 from real_estate_scraper.decorators import json_finder
 from real_estate_scraper.spiders.base import BaseSpider
+from models import Agent
 from models.error import Error
 from scrapy.selector import Selector
 from scrapy.loader import ItemLoader
@@ -160,26 +160,43 @@ class HaloOglasiNekretnineSpider(BaseSpider):
                 "property_state",
                 jmespath.search("OtherFields.stanje_objekta_s", property_data),
             )
+            pitem = dict(ploader.load_item())
+            property_item = {
+                "property_type": pitem.get("property_type"),
+                "building_type": pitem.get("building_type"),
+                "size_m2": pitem.get("size_m2"),
+                "floor_number": pitem.get("floor_number"),
+                "total_floors": pitem.get("total_floors"),
+                "rooms": pitem.get("rooms"),
+                "property_state": pitem.get("property_state"),
+            }
 
             # define seller type
             agency_reg_number = agency_data.get("NumberInRegister")
             seller_type = "agency" if agency_reg_number else None
             if agency_reg_number:
-                agency = find_agency(agency_reg_number)
+                # strip 0 from the beginning
+                agency_reg_number = agency_reg_number.lstrip("0")
+                db = next(get_db())
+                agent = (
+                    db.query(Agent)
+                    .filter(Agent.registry_number == agency_reg_number)
+                    .first()
+                )
                 seller = {
-                    "source_seller_id": agency.get("id"),
-                    "name": agency.get("name"),
-                    "registry_number": agency.get("registryNumber"),
+                    "source_seller_id": agent.agent_id,
+                    "name": agent.name,
+                    "registry_number": agent.registry_number,
                     "seller_type": seller_type,
                     # "license_id": None,
-                    "tax_id": agency.get("taxNumber"),
+                    "tax_id": agent.tax_number,
                     "primary_phone": phonenumber,
-                    "primary_email": agency.get("eMail"),
-                    "website": agency.get("webPage"),
+                    "primary_email": agent.email,
+                    "website": agent.web_page,
                     # "verified": None,
                     # "rating": None,
                     # "total_listings": None,
-                    "active_since": agency.get("05/02/2021"),
+                    "active_since": agent.registry_date,
                 }
             else:
                 seller = {
@@ -226,7 +243,7 @@ class HaloOglasiNekretnineSpider(BaseSpider):
                     },
                 },
                 ## additional data
-                "property": ploader.load_item(),
+                "property": property_item,
                 # "property": {
                 #     "property_type": jmespath.search(
                 #         "OtherFields.tip_nekretnine_s", property_data

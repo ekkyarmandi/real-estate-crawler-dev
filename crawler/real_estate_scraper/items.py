@@ -12,6 +12,7 @@ def as_float(value):
     if isinstance(value, str) and re.match(r"\d", value):
         value = value.replace(".", "")
         value = value.replace(",", ".")
+        value = value.replace("+", "")
         return float(value) if value is not None else None
     elif isinstance(value, int):
         return float(value)
@@ -22,6 +23,7 @@ def as_int(value):
     if isinstance(value, str) and re.match(r"\d", value):
         value = value.replace(".", "")
         value = value.replace(",", ".")
+        value = value.replace("+", "")
         return int(value) if value is not None else None
     return None
 

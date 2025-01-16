@@ -23,7 +23,7 @@ class PreviousListing:
                 self.price = -1
 
     def validate_valid_from(self):
-        if self.valid_from:
+        if self.valid_from and isinstance(self.valid_from, str):
             date = re.search(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}", self.valid_from)
             if date:
                 date = dt.strptime(date.group(0), r"%Y-%m-%dT%H:%M:%S")
@@ -34,7 +34,7 @@ class PreviousListing:
             self.valid_from = None
 
     def validate_valid_to(self):
-        if self.valid_to:
+        if self.valid_to and isinstance(self.valid_to, str):
             date = re.search(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}", self.valid_to)
             if date:
                 date = dt.strptime(date.group(0), r"%Y-%m-%dT%H:%M:%S")

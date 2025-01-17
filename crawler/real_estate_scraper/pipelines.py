@@ -136,18 +136,30 @@ class SellersPipeline:
             website=jmespath.search("seller.website", item),
             agent_id=jmespath.search("seller.agent_id", item),
         )
-        # query existing seller based on seller_item
-        db = next(get_db())
-        existing_seller = (
-            db.query(Seller)
-            .filter(
-                Seller.source_seller_id == str(seller_item.source_seller_id),
-                Seller.name == seller_item.name,
-                Seller.seller_type == seller_item.seller_type,
-            )
-            .first()
-        )
+
+        # Query with retry logic
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                existing_seller = (
+                    db.query(Seller)
+                    .filter(
+                        Seller.source_seller_id == str(seller_item.source_seller_id),
+                        Seller.name == seller_item.name,
+                        Seller.seller_type == seller_item.seller_type,
+                    )
+                    .first()
+                )
+                break
+            except psycopg2.OperationalError as e:
+                if attempt == max_retries - 1:  # Last attempt
+                    raise
+                db.close()
+                db = next(get_db())  # Get fresh connection
+                continue
+
         if existing_seller:
+
             # update seller agent_id
             agent_id = seller_item.agent_id
             if agent_id:
@@ -158,15 +170,20 @@ class SellersPipeline:
                 db.commit()
                 db.refresh(existing_seller)
             item["seller"]["id"] = str(existing_seller.id)
+            db.close()
             return item
+
         # execute query
         try:
             db.add(seller_item)
             db.commit()
+            item["seller"]["id"] = str(seller_item.id)
         except Exception as err:
             db.rollback()
             raise ValueError("Seller insertion failed: {0}".format(err))
-        item["seller"]["id"] = str(seller_item.id)
+        finally:
+            db.close()
+
         return item
 
 

@@ -137,20 +137,27 @@ class SellersPipeline:
             agent_id=jmespath.search("seller.agent_id", item),
         )
 
-        # Query with retry logic
+        # Query the existing seller
         db = next(get_db())
         max_retries = 3
         for attempt in range(max_retries):
             try:
-                existing_seller = (
-                    db.query(Seller)
-                    .filter(
-                        Seller.source_seller_id == str(seller_item.source_seller_id),
-                        Seller.name == seller_item.name,
-                        Seller.seller_type == seller_item.seller_type,
-                    )
-                    .first()
+                q = text(
+                    """
+                    SELECT id FROM listings_seller 
+                    WHERE source_seller_id = :source_seller_id
+                    AND name = :name 
+                    AND seller_type = :seller_type
+                    LIMIT 1;
+                """
                 )
+                item = {
+                    "source_seller_id": str(seller_item.source_seller_id),
+                    "name": seller_item.name,
+                    "seller_type": seller_item.seller_type,
+                }
+                seller_id = db.execute(q, item).fetchone()
+                seller_item.id = seller_id[0]
                 break
             except psycopg2.OperationalError as e:
                 if attempt == max_retries - 1:  # Last attempt
@@ -159,18 +166,17 @@ class SellersPipeline:
                 db = next(get_db())  # Get fresh connection
                 continue
 
-        if existing_seller:
-
-            # update seller agent_id
-            agent_id = seller_item.agent_id
-            if agent_id:
-                q = text(
-                    f"UPDATE listings_seller SET agent_id = '{agent_id}' WHERE id = '{existing_seller.id}';"
-                )
-                db.execute(q)
-                db.commit()
-                db.refresh(existing_seller)
-            item["seller"]["id"] = str(existing_seller.id)
+        # if existing seller is exist
+        if seller_item.id and seller_item.agent_id:
+            q = text(
+                f"""
+                UPDATE listings_seller SET agent_id='{seller_item.agent_id}'
+                WHERE id='{seller_item.id}';
+                """
+            )
+            db.execute(q)
+            db.commit()
+            item["seller"]["id"] = str(seller_item.id)
             db.close()
             return item
 

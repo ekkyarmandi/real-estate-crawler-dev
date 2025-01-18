@@ -151,12 +151,12 @@ class SellersPipeline:
                     LIMIT 1;
                 """
                 )
-                item = {
+                query_item = {
                     "source_seller_id": str(seller_item.source_seller_id),
                     "name": seller_item.name,
                     "seller_type": seller_item.seller_type,
                 }
-                seller_id = db.execute(q, item).fetchone()
+                seller_id = db.execute(q, query_item).fetchone()
                 seller_item.id = seller_id[0]
                 break
             except psycopg2.OperationalError as e:

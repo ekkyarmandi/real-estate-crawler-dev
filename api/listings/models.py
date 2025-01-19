@@ -104,7 +104,7 @@ class Agent(TimestampedMixin, models.Model):
     owner_full_name = models.CharField(max_length=255, null=True)
     owner_national_number = models.CharField(max_length=255, null=True)
     registry_date = models.DateField(null=True)
-    registry_number = models.CharField(max_length=255, null=True)
+    registry_number = models.CharField(max_length=255, null=True, db_index=True)
     registry_statement_date = models.DateField(null=True)
     registry_statement_number = models.CharField(max_length=255, null=True)
     representatives_full_name = models.CharField(max_length=255, null=True)

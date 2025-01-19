@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Boolean, Date
+from sqlalchemy import Column, String, Boolean, Date, Index
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from models.base import Base, TimestampMixin
@@ -26,7 +26,7 @@ class Agent(Base, TimestampMixin):
     owner_full_name = Column(String)
     owner_national_number = Column(String)
     registry_date = Column(Date)
-    registry_number = Column(String)
+    registry_number = Column(String, index=True)
     registry_statement_date = Column(Date)
     registry_statement_number = Column(String)
     representatives_full_name = Column(String)
@@ -34,6 +34,9 @@ class Agent(Base, TimestampMixin):
     web_page = Column(String)
 
     sellers = relationship("Seller", back_populates="agent")
+
+    # Create index on registry_number
+    __table_args__ = (Index("ix_listings_agent_registry_number", "registry_number"),)
 
     def __repr__(self):
         return f"<Agent {self.name}>"

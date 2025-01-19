@@ -251,7 +251,7 @@ class ListingPipeline:
             listing_item["price"] = -1
         # insert value
         try:
-            db.execute(listing_insert_query, listing_item)
+            db.execute(text(listing_insert_query), listing_item)
             db.commit()
         except Exception as err:
             db.rollback()
@@ -262,7 +262,7 @@ class ListingPipeline:
                 error_message=str(err),
                 error_traceback=traceback.format_exc(),
             )
-            db.execute(error_insert_query, error_item)
+            db.execute(text(error_insert_query), error_item)
             db.commit()
             raise DropItem("Listing insertion failed: {0}".format(err))
 

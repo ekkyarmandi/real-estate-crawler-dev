@@ -199,19 +199,19 @@ class SellersPipeline(BasePipeline):
             self.sellers[seller_id] = registry_number
         return item
 
-    def close_spider(self, spider):
-        for seller_id, registry_number in self.sellers.items():
-            seller = self.db.query(Seller).filter(Seller.id == seller_id).first()
-            if seller and seller.seller_type == "agency" and not seller.agent_id:
-                agent = (
-                    self.db.query(Agent)
-                    .filter(Agent.registry_number == registry_number)
-                    .first()
-                )
-                if agent:
-                    seller.agent_id = agent.id
-                    self.db.commit()
-                    self.db.refresh(seller)
+    # def close_spider(self, spider):
+    #     for seller_id, registry_number in self.sellers.items():
+    #         seller = self.db.query(Seller).filter(Seller.id == seller_id).first()
+    #         if seller and seller.seller_type == "agency" and not seller.agent_id:
+    #             agent = (
+    #                 self.db.query(Agent)
+    #                 .filter(Agent.registry_number == registry_number)
+    #                 .first()
+    #             )
+    #             if agent:
+    #                 seller.agent_id = agent.id
+    #                 self.db.commit()
+    #                 self.db.refresh(seller)
 
 
 class ListingPipeline(BasePipeline):

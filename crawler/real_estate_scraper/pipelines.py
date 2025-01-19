@@ -221,9 +221,9 @@ class ListingPipeline:
 
     def process_item(self, item, spider):
         # query the existing listing by url
-        q = "SELECT * FROM listings_listing WHERE url='{}';".format(item["url"])
-        self.db.cursor.execute(q)
-        existing_listing = self.db.cursor.fetchone()
+        db = next(get_db())
+        q = text(f"SELECT * FROM listings_listing WHERE url='{item['url']}';")
+        existing_listing = db.execute(q).fetchone()
         if existing_listing:
             item["listing_id"] = existing_listing[2]
         # construct listing data
@@ -251,10 +251,10 @@ class ListingPipeline:
             listing_item["price"] = -1
         # insert value
         try:
-            self.db.cursor.execute(listing_insert_query, listing_item)
-            self.db.conn.commit()
+            db.execute(listing_insert_query, listing_item)
+            db.commit()
         except Exception as err:
-            self.db.conn.rollback()
+            db.rollback()
             # Insert error to db
             error_item = dict(
                 url=item["url"],
@@ -262,12 +262,11 @@ class ListingPipeline:
                 error_message=str(err),
                 error_traceback=traceback.format_exc(),
             )
-            self.db.cursor.execute(error_insert_query, error_item)
-            self.db.conn.commit()
+            db.execute(error_insert_query, error_item)
+            db.commit()
             raise DropItem("Listing insertion failed: {0}".format(err))
 
         # remove listing url from error if it exists
-        db = next(get_db())
         db.query(Error).filter(Error.url == item["url"]).delete()
         db.commit()
         return item

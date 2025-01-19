@@ -5,8 +5,6 @@ from PIL import Image
 import requests
 import re
 import os
-import csv
-from pprint import pprint
 
 url = config("SUPABASE_URL")
 key = config("SUPABASE_KEY")
@@ -69,3 +67,13 @@ def supabase_uploader(url: str, path: str) -> str:
     finally:
         if os.path.exists(filename):
             os.remove(filename)
+
+
+def str_to_price(value: str) -> float:
+    if isinstance(value, str) and re.search(r"\d", value):
+        value = re.sub(r"\s+", "", value)
+        value = re.search(r"[0-9.,]+", value).group(0)
+        value = value.replace(".", "")
+        value = value.replace(",", ".")
+        value = float(value)
+    return value

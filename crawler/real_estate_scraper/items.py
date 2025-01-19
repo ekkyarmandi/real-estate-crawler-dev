@@ -7,12 +7,15 @@ import re
 import scrapy
 from itemloaders.processors import TakeFirst, MapCompose
 
+from real_estate_scraper.func import str_to_price
+
 
 def as_float(value):
     if isinstance(value, str) and re.match(r"\d", value):
         value = value.replace(".", "")
         value = value.replace(",", ".")
         value = value.replace("+", "")
+        value = value.replace("m²", "")
         return float(value) if value is not None else None
     elif isinstance(value, int):
         return float(value)
@@ -38,7 +41,7 @@ class PropertyItem(scrapy.Item):
         output_processor=TakeFirst(),
     )
     size_m2 = scrapy.Field(
-        input_processor=MapCompose(as_float),
+        input_processor=MapCompose(str.strip, as_float),
         output_processor=TakeFirst(),
     )
     floor_number = scrapy.Field(
@@ -50,10 +53,29 @@ class PropertyItem(scrapy.Item):
         output_processor=TakeFirst(),
     )
     rooms = scrapy.Field(
-        input_processor=MapCompose(as_float),
+        input_processor=MapCompose(str.strip, as_float),
         output_processor=TakeFirst(),
     )
     property_state = scrapy.Field(
         input_processor=MapCompose(str.strip),
+        output_processor=TakeFirst(),
+    )
+
+
+class ListingItem(scrapy.Item):
+    source_id = scrapy.Field(
+        input_processor=MapCompose(str.strip),
+        output_processor=TakeFirst(),
+    )
+    title = scrapy.Field(
+        input_processor=MapCompose(str.strip),
+        output_processor=TakeFirst(),
+    )
+    description = scrapy.Field(
+        input_processor=MapCompose(str.strip),
+        output_processor=lambda x: "\n".join(x).strip() if x else None,
+    )
+    price = scrapy.Field(
+        input_processor=MapCompose(str_to_price),
         output_processor=TakeFirst(),
     )

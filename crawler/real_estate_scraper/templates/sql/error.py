@@ -11,9 +11,9 @@ INSERT INTO listings_error (
     uuid_generate_v4(),
     now(),
     now(),
-    %(url)s,
-    %(error_type)s,
-    %(error_message)s,
-    %(error_traceback)s
+    :url,
+    :error_type,
+    :error_message,
+    :error_traceback
 ) ON CONFLICT (url, error_type, error_message) DO UPDATE SET updated_at = now();
 """

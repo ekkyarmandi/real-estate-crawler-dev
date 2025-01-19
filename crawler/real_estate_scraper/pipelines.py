@@ -262,7 +262,7 @@ class ListingPipeline:
                 error_message=str(err),
                 error_traceback=traceback.format_exc(),
             )
-            db.execute(text(error_insert_query), error_item)
+            db.execute(error_insert_query, error_item)
             db.commit()
             raise DropItem("Listing insertion failed: {0}".format(err))
 
@@ -452,11 +452,7 @@ class ImagesPipeline:
             url,
             sequence_number
         ) VALUES (
-            uuid_generate_v4(), now(), now(),
-            %s,
-            %s,
-            %s,
-            %s
+            uuid_generate_v4(), now(), now(), %s, %s, %s, %s
         ) ON CONFLICT DO NOTHING;
         """
         # execute query

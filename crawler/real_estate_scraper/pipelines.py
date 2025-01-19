@@ -33,12 +33,14 @@ def keep_url_only(item):
 
 
 class PostgreSQLConnection:
-    conn = None
-    cursor = None
-
     def __init__(self):
+        self.conn = None
+        self.cursor = None
+        self.connect()
+
+    def connect(self):
         try:
-            if not self.conn:
+            if not self.conn or self.conn.closed:
                 db_config = dj_database_url.parse(config("DB_URL"))
                 self.conn = psycopg2.connect(
                     database=db_config["NAME"],
@@ -54,6 +56,31 @@ class PostgreSQLConnection:
                     err
                 )
             )
+
+    def ensure_connection(self):
+        try:
+            # Test if connection is alive
+            self.cursor.execute("SELECT 1")
+        except (psycopg2.InterfaceError, psycopg2.OperationalError):
+            # Reconnect if connection is closed
+            self.connect()
+
+    def execute(self, query, params=None):
+        try:
+            self.ensure_connection()
+            self.cursor.execute(query, params)
+        except (psycopg2.InterfaceError, psycopg2.OperationalError):
+            # Try one more time
+            self.connect()
+            self.cursor.execute(query, params)
+
+    def commit(self):
+        self.ensure_connection()
+        self.conn.commit()
+
+    def rollback(self):
+        self.ensure_connection()
+        self.conn.rollback()
 
 
 class SourcesPipeline:
@@ -456,13 +483,18 @@ class ImagesPipeline:
         ) ON CONFLICT DO NOTHING;
         """
         # execute query
-        try:
-            self.db.cursor.executemany(q, image_items)
-            self.db.conn.commit()
-        except Exception as err:
-            self.db.conn.rollback()
-            raise ValueError("Image insertion failed: {0}".format(err))
+        for image in image_items:
+            try:
+                self.db.execute(q, image)
+                self.db.commit()
+            except Exception as err:
+                self.db.rollback()
+                raise ValueError("Image insertion failed: {0}".format(err))
         return item
+
+    def close_spider(self, spider):
+        if self.db.conn and not self.db.conn.closed:
+            self.db.conn.close()
 
 
 class ListingChangePipeline:

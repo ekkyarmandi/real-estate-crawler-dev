@@ -104,94 +104,65 @@ class SourcesPipeline:
 class SellersPipeline:
     def __init__(self):
         self.db = PostgreSQLConnection()
-
-    def __query_agent_data(self, agent_id):
-        db = next(get_db())
-        q = text(f"SELECT * FROM listings_agent WHERE agent_id = '{agent_id}';")
-        result = db.execute(q)
-        agent = result.fetchone()
-        return agent
+        self.sellers = (
+            {}
+        )  # COMMENTS: sellers would consist of seller_id and registry_number
 
     def process_item(self, item, spider):
-        # construct seller item
-        seller_type = item["seller"]["seller_type"]
         registry_number = jmespath.search("seller.registry_number", item)
+        # Query the existing seller
+        seller_type = jmespath.search("seller.seller_type", item)
         if not seller_type:
             seller_type = "person"
-        elif seller_type == "agency" and registry_number:
-            # query agent data
-            agent = self.__query_agent_data(registry_number)
-            if agent:
-                item["seller"]["agent_id"] = str(agent.id)
-            else:
-                item["seller"]["agent_id"] = None
-
         seller_name = jmespath.search("seller.name", item) or "Unknown Seller"
-        seller_item = Seller(
-            source_seller_id=jmespath.search("seller.source_seller_id", item),
-            name=seller_name,
-            seller_type=seller_type,
-            primary_phone=jmespath.search("seller.primary_phone", item),
-            primary_email=jmespath.search("seller.primary_email", item),
-            website=jmespath.search("seller.website", item),
-            agent_id=jmespath.search("seller.agent_id", item),
-        )
-
-        # Query the existing seller
+        source_seller_id = jmespath.search("seller.source_seller_id", item)
         db = next(get_db())
-        max_retries = 3
-        for attempt in range(max_retries):
-            try:
-                q = text(
-                    """
-                    SELECT id FROM listings_seller 
-                    WHERE source_seller_id = :source_seller_id
-                    AND name = :name 
-                    AND seller_type = :seller_type
-                    LIMIT 1;
-                """
-                )
-                query_item = {
-                    "source_seller_id": str(seller_item.source_seller_id),
-                    "name": seller_item.name,
-                    "seller_type": seller_item.seller_type,
-                }
-                seller_id = db.execute(q, query_item).fetchone()
-                seller_item.id = seller_id[0]
-                break
-            except psycopg2.OperationalError as e:
-                if attempt == max_retries - 1:  # Last attempt
-                    raise
-                db.close()
-                db = next(get_db())  # Get fresh connection
-                continue
-
-        # if existing seller is exist
-        if seller_item.id and seller_item.agent_id:
-            q = text(
-                f"""
-                UPDATE listings_seller SET agent_id='{seller_item.agent_id}'
-                WHERE id='{seller_item.id}';
-                """
+        seller = (
+            db.query(Seller)
+            .filter(
+                Seller.source_seller_id == source_seller_id,
+                Seller.name == seller_name,
+                Seller.seller_type == seller_type,
             )
-            db.execute(q)
-            db.commit()
-            item["seller"]["id"] = str(seller_item.id)
-            db.close()
-            return item
-
-        # execute query
-        try:
+            .first()
+        )
+        # if seller exists, grab the seller id
+        if seller:
+            item["seller"]["id"] = str(seller.id)
+        # if not, insert new seller
+        else:
+            seller_item = Seller(
+                source_seller_id=source_seller_id,
+                name=seller_name,
+                seller_type=seller_type,
+                primary_phone=jmespath.search("seller.primary_phone", item),
+                primary_email=jmespath.search("seller.primary_email", item),
+                website=jmespath.search("seller.website", item),
+            )
             db.add(seller_item)
             db.commit()
+            db.refresh(seller_item)
             item["seller"]["id"] = str(seller_item.id)
-        except Exception as err:
-            db.rollback()
-            raise ValueError("Seller insertion failed: {0}".format(err))
-        finally:
-            db.close()
-
+        # collect the seller id and registry number
+        if registry_number:
+            seller_id = jmespath.search("seller.id", item)
+            self.sellers[seller_id] = registry_number
         return item
+
+    def close_spider(self, spider):
+        db = next(get_db())
+        for seller_id, registry_number in self.sellers.items():
+            seller = db.query(Seller).filter(Seller.id == seller_id).first()
+            if seller and seller.seller_type == "agency" and not seller.agent_id:
+                agent = (
+                    db.query(Agent)
+                    .filter(Agent.registry_number == registry_number)
+                    .first()
+                )
+                if agent:
+                    seller.agent_id = agent.id
+                    db.commit()
+                    db.refresh(seller)
 
 
 class ListingPipeline:

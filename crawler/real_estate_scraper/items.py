@@ -41,7 +41,7 @@ class PropertyItem(scrapy.Item):
         output_processor=TakeFirst(),
     )
     size_m2 = scrapy.Field(
-        input_processor=MapCompose(str.strip, as_float),
+        input_processor=MapCompose(as_float),
         output_processor=TakeFirst(),
     )
     floor_number = scrapy.Field(

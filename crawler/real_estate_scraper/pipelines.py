@@ -83,17 +83,41 @@ class PostgreSQLConnection:
         self.conn.rollback()
 
 
-class SourcesPipeline:
-    def __init__(self):
-        self.db = PostgreSQLConnection()
+class DatabaseConnection:
+    _instance = None
+    _db = None
 
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(DatabaseConnection, cls).__new__(cls)
+            cls._instance._psql = PostgreSQLConnection()
+            cls._instance._db = next(get_db())
+        return cls._instance
+
+    @property
+    def psql(self):
+        return self._psql
+
+    @property
+    def db(self):
+        return self._db
+
+
+class BasePipeline:
+    def __init__(self):
+        self.conn = DatabaseConnection()
+        self.db = self.conn.db  # SQLAlchemy session
+        self.psql = self.conn.psql  # PostgreSQL connection
+
+
+class SourcesPipeline(BasePipeline):
     def process_item(self, item, spider):
         # query existing source
         q = "SELECT id,base_url FROM listings_source WHERE base_url='{}';".format(
             item["source"]["base_url"]
         )
-        self.db.cursor.execute(q)
-        existing_source = self.db.cursor.fetchone()
+        self.psql.cursor.execute(q)
+        existing_source = self.psql.cursor.fetchone()
         if existing_source:
             item["source"]["id"] = str(existing_source[0])
             return item
@@ -120,17 +144,17 @@ class SourcesPipeline:
         """
         # execute query
         try:
-            self.db.cursor.execute(q, source_item)
-            self.db.conn.commit()
+            self.psql.cursor.execute(q, source_item)
+            self.psql.conn.commit()
         except Exception as err:
-            self.db.conn.rollback()
+            self.psql.conn.rollback()
             raise ValueError("Source insertion failed: {0}".format(err))
         return item
 
 
-class SellersPipeline:
+class SellersPipeline(BasePipeline):
     def __init__(self):
-        self.db = PostgreSQLConnection()
+        super().__init__()
         self.sellers = (
             {}
         )  # COMMENTS: sellers would consist of seller_id and registry_number
@@ -143,9 +167,8 @@ class SellersPipeline:
             seller_type = "person"
         seller_name = jmespath.search("seller.name", item) or "Unknown Seller"
         source_seller_id = jmespath.search("seller.source_seller_id", item)
-        db = next(get_db())
         seller = (
-            db.query(Seller)
+            self.db.query(Seller)
             .filter(
                 Seller.source_seller_id == source_seller_id,
                 Seller.name == seller_name,
@@ -166,9 +189,9 @@ class SellersPipeline:
                 primary_email=jmespath.search("seller.primary_email", item),
                 website=jmespath.search("seller.website", item),
             )
-            db.add(seller_item)
-            db.commit()
-            db.refresh(seller_item)
+            self.db.add(seller_item)
+            self.db.commit()
+            self.db.refresh(seller_item)
             item["seller"]["id"] = str(seller_item.id)
         # collect the seller id and registry number
         if registry_number:
@@ -177,29 +200,27 @@ class SellersPipeline:
         return item
 
     def close_spider(self, spider):
-        db = next(get_db())
         for seller_id, registry_number in self.sellers.items():
-            seller = db.query(Seller).filter(Seller.id == seller_id).first()
+            seller = self.db.query(Seller).filter(Seller.id == seller_id).first()
             if seller and seller.seller_type == "agency" and not seller.agent_id:
                 agent = (
-                    db.query(Agent)
+                    self.db.query(Agent)
                     .filter(Agent.registry_number == registry_number)
                     .first()
                 )
                 if agent:
                     seller.agent_id = agent.id
-                    db.commit()
-                    db.refresh(seller)
+                    self.db.commit()
+                    self.db.refresh(seller)
 
 
-class ListingPipeline:
+class ListingPipeline(BasePipeline):
     def __init__(self):
-        self.db = PostgreSQLConnection()
+        super().__init__()
 
     def __queue_new_listings(self, spider):
-        db = next(get_db())
         today = dt.now().strftime(r"%Y-%m-%d")
-        users = db.query(User).all()
+        users = self.db.query(User).all()
         # query new listings
         cols = [
             "id",
@@ -229,7 +250,7 @@ class ListingPipeline:
             GROUP BY listings.id;
             """
         )
-        result = db.execute(q)
+        result = self.db.execute(q)
         listings = result.fetchall()
         # convert raw data into custom listings
         listings = [dict(zip(cols, listing)) for listing in listings]
@@ -241,16 +262,15 @@ class ListingPipeline:
                     # create queue
                     queue = Queue(listing_id=listing.id, user_id=user.id)
                     try:
-                        db.add(queue)
-                        db.commit()
+                        self.db.add(queue)
+                        self.db.commit()
                     except Exception as err:
-                        db.rollback()
+                        self.db.rollback()
 
     def process_item(self, item, spider):
         # query the existing listing by url
-        db = next(get_db())
         q = text(f"SELECT * FROM listings_listing WHERE url='{item['url']}';")
-        existing_listing = db.execute(q).fetchone()
+        existing_listing = self.db.execute(q).fetchone()
         if existing_listing:
             item["listing_id"] = existing_listing[2]
         # construct listing data
@@ -278,10 +298,10 @@ class ListingPipeline:
             listing_item["price"] = -1
         # insert value
         try:
-            db.execute(text(listing_insert_query), listing_item)
-            db.commit()
+            self.db.execute(text(listing_insert_query), listing_item)
+            self.db.commit()
         except Exception as err:
-            db.rollback()
+            self.db.rollback()
             # Insert error to db
             error_item = dict(
                 url=item["url"],
@@ -289,34 +309,33 @@ class ListingPipeline:
                 error_message=str(err),
                 error_traceback=traceback.format_exc(),
             )
-            db.execute(error_insert_query, error_item)
-            db.commit()
+            self.db.execute(error_insert_query, error_item)
+            self.db.commit()
             raise DropItem("Listing insertion failed: {0}".format(err))
 
         # remove listing url from error if it exists
-        db.query(Error).filter(Error.url == item["url"]).delete()
-        db.commit()
+        self.db.query(Error).filter(Error.url == item["url"]).delete()
+        self.db.commit()
         return item
 
     def open_spider(self, spider):
-        db = next(get_db())
         # Load exisiting urls
         if spider.settings.get("LOAD_EXISTING_URLS"):
             q = text(
                 f"SELECT url FROM listings_listing WHERE url LIKE '%{spider.name}%';"
             )
-            result = db.execute(q)
+            result = self.db.execute(q)
             visited_urls = result.fetchall()
             spider.visited_urls = [url[0] for url in visited_urls]
         try:
             # Create new report
             report = Report(source_name=spider.name)
-            db.add(report)
-            db.commit()
-            db.refresh(report)
+            self.db.add(report)
+            self.db.commit()
+            self.db.refresh(report)
             spider.report_id = report.id
         except Exception as err:
-            db.rollback()
+            self.db.rollback()
             raise ValueError("Error on spider close: {0}".format(err))
 
     def close_spider(self, spider):
@@ -331,9 +350,8 @@ class ListingPipeline:
         start_time = stats.get("start_time", 0)
         elapsed_time = dt.now(start_time.tzinfo) - start_time
         # Update the existing report using spider.report_id
-        db = next(get_db())
         try:
-            report = db.query(Report).filter(Report.id == spider.report_id).one()
+            report = self.db.query(Report).filter(Report.id == spider.report_id).one()
             report.total_pages = total_pages
             report.total_listings = total_listings
             report.total_actual_listings = total_actual_listings
@@ -343,19 +361,16 @@ class ListingPipeline:
             report.total_changed_listings = spider.total_changed_listings
             report.response_error_count = stats.get("log_count/ERROR", 0)
             report.elapsed_time_seconds = elapsed_time.total_seconds()
-            db.commit()
+            self.db.commit()
         except Exception as err:
-            db.rollback()
+            self.db.rollback()
             raise ValueError("Error on spider close: {0}".format(err))
 
         # queue new listings
         self.__queue_new_listings(spider)
 
 
-class RawDataPipeline:
-    def __init__(self):
-        self.db = PostgreSQLConnection()
-
+class RawDataPipeline(BasePipeline):
     def process_item(self, item, spider):
         # clean up HTML data related to halooglasi
         if "halooglasi" in item["url"]:
@@ -374,23 +389,21 @@ class RawDataPipeline:
         """
         # execute the query
         try:
-            self.db.cursor.execute(q, raw_data_item)
-            self.db.conn.commit()
+            self.psql.cursor.execute(q, raw_data_item)
+            self.psql.conn.commit()
         except Exception as err:
-            self.db.conn.rollback()
+            self.psql.conn.rollback()
             raise ValueError("Raw data insertion failed: {0}".format(err))
         return item
 
 
-class PropertyPipeline:
-    def __init__(self):
-        self.db = PostgreSQLConnection()
-
+class PropertyPipeline(BasePipeline):
     def process_item(self, item, spider):
         # Query existing property
-        db = next(get_db())
         existing_property = (
-            db.query(Property).filter(Property.listing_id == item["listing_id"]).first()
+            self.db.query(Property)
+            .filter(Property.listing_id == item["listing_id"])
+            .first()
         )
 
         if existing_property:
@@ -433,11 +446,11 @@ class PropertyPipeline:
         """
         # execute the query
         try:
-            self.db.cursor.execute(q, property_item)
-            self.db.conn.commit()
+            self.psql.cursor.execute(q, property_item)
+            self.psql.conn.commit()
             item["property"]["id"] = str(property_item["id"])
         except Exception as err:
-            db.rollback()
+            self.psql.rollback()
             # Insert error to db
             error = Error(
                 url=item["url"],
@@ -445,16 +458,13 @@ class PropertyPipeline:
                 error_message=str(err),
                 error_traceback=traceback.format_exc(),
             )
-            db.add(error)
-            db.commit()
+            self.db.add(error)
+            self.db.commit()
             raise DropItem("Error on property insertion: {0}".format(err))
         return item
 
 
-class ImagesPipeline:
-    def __init__(self):
-        self.db = PostgreSQLConnection()
-
+class ImagesPipeline(BasePipeline):
     def process_item(self, item, spider):
         # construct image items
         image_items = []
@@ -485,22 +495,15 @@ class ImagesPipeline:
         # execute query
         for image in image_items:
             try:
-                self.db.execute(q, image)
-                self.db.commit()
+                self.psql.execute(q, image)
+                self.psql.commit()
             except Exception as err:
-                self.db.rollback()
+                self.psql.rollback()
                 raise ValueError("Image insertion failed: {0}".format(err))
         return item
 
-    def close_spider(self, spider):
-        if self.db.conn and not self.db.conn.closed:
-            self.db.conn.close()
 
-
-class ListingChangePipeline:
-    def __init__(self):
-        self.db = PostgreSQLConnection()
-
+class ListingChangePipeline(BasePipeline):
     def process_item(self, item, spider):
         # query existing listing
         q = f"""
@@ -517,7 +520,7 @@ class ListingChangePipeline:
         JOIN listings_rawdata rd ON rd.listing_id = ll.id
         WHERE ll.id = '{item["listing_id"]}';
         """
-        self.db.cursor.execute(q)
+        self.psql.cursor.execute(q)
         columns = [
             "price",
             "status",
@@ -527,7 +530,7 @@ class ListingChangePipeline:
             "short_description",
             "raw_data_id",
         ]
-        listing = self.db.cursor.fetchone()  # existing listing
+        listing = self.psql.cursor.fetchone()  # existing listing
         if not listing:
             spider.total_new_listings += 1
         elif listing:
@@ -568,8 +571,8 @@ class ListingChangePipeline:
                 """
                 # execute query
                 try:
-                    self.db.cursor.executemany(q, change_items)
-                    self.db.conn.commit()
+                    self.psql.cursor.executemany(q, change_items)
+                    self.psql.conn.commit()
                     # convert the new_value to SET clause
                     new_values = {}
                     for change in change_items:
@@ -583,10 +586,10 @@ class ListingChangePipeline:
                     UPDATE listings_listing SET updated_at=now(), {set_clause}
                     WHERE id='{listing_id}';
                     """
-                    self.db.cursor.execute(q, list(new_values.values()))
-                    self.db.conn.commit()
+                    self.psql.cursor.execute(q, list(new_values.values()))
+                    self.psql.conn.commit()
                 except Exception as err:
-                    self.db.conn.rollback()
+                    self.psql.conn.rollback()
                     # Insert error to db
                     error_item = dict(
                         url=item["url"],
@@ -594,8 +597,8 @@ class ListingChangePipeline:
                         error_message=str(err),
                         error_traceback=traceback.format_exc(),
                     )
-                    self.db.cursor.execute(error_insert_query, error_item)
-                    self.db.conn.commit()
+                    self.psql.cursor.execute(error_insert_query, error_item)
+                    self.psql.conn.commit()
                     raise ValueError(
                         "Error on listing changes insertion: {0}".format(err)
                     )

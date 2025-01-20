@@ -175,42 +175,18 @@ class HaloOglasiNekretnineSpider(BaseSpider):
             agency_reg_number = agency_data.get("NumberInRegister")
             seller_type = "agency" if agency_reg_number else None
             if agency_reg_number:
-                # strip 0 from the beginning
                 agency_reg_number = agency_reg_number.lstrip("0")
-                db = next(get_db())
-                agent = (
-                    db.query(Agent)
-                    .filter(Agent.registry_number == agency_reg_number)
-                    .first()
-                )
-                if agent:
-                    seller = {
-                        "source_seller_id": agent.agent_id,
-                        "name": agent.name,
-                        "registry_number": agent.registry_number,
-                        "seller_type": seller_type,
-                        # "license_id": None,
-                        "tax_id": agent.tax_number,
-                        "primary_phone": phonenumber,
-                        "primary_email": agent.email,
-                        "website": agent.web_page,
-                        # "verified": None,
-                        # "rating": None,
-                        # "total_listings": None,
-                        "active_since": agent.registry_date,
-                    }
-                else:
-                    seller = {
-                        "source_seller_id": property_data.get("AdvertiserId"),
-                        "name": jmespath.search("Advertiser.DisplayName", agency_data),
-                        "registry_number": agency_data.get("NumberInRegister"),
-                        "seller_type": seller_type,
-                        "tax_id": None,
-                        "primary_phone": phonenumber,
-                        "primary_email": None,
-                        "website": agency_data["WebAddress"],
-                        "active_since": None,
-                    }
+                seller = {
+                    "source_seller_id": property_data.get("AdvertiserId"),
+                    "name": jmespath.search("Advertiser.DisplayName", agency_data),
+                    "registry_number": agency_data.get("NumberInRegister"),
+                    "seller_type": seller_type,
+                    "tax_id": None,
+                    "primary_phone": phonenumber,
+                    "primary_email": None,
+                    "website": agency_data["WebAddress"],
+                    "active_since": None,
+                }
             else:
                 seller = {
                     "source_seller_id": property_data.get("AdvertiserId"),

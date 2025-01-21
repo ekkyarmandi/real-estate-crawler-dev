@@ -79,3 +79,25 @@ class ListingItem(scrapy.Item):
         input_processor=MapCompose(str_to_price),
         output_processor=TakeFirst(),
     )
+
+class AddressItem(scrapy.Item):
+    city = scrapy.Field(
+        input_processor=MapCompose(str.strip),
+        output_processor=TakeFirst(),
+    )
+    municipality = scrapy.Field(
+        input_processor=MapCompose(str.strip),
+        output_processor=TakeFirst(),
+    )
+    micro_location = scrapy.Field(
+        input_processor=MapCompose(str.strip),
+        output_processor=TakeFirst(),
+    )
+    latitude = scrapy.Field(
+        input_processor=MapCompose(as_float),
+        output_processor=TakeFirst(),
+    )
+    longitude = scrapy.Field(
+        input_processor=MapCompose(as_float),
+        output_processor=TakeFirst(),
+    )

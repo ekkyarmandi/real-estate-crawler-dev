@@ -1,13 +1,16 @@
 from itemloaders import ItemLoader
 import scrapy
-from scrapy import Selector
 import uuid
 
 from itemloaders.processors import MapCompose
-from real_estate_scraper.items import ListingItem, PropertyItem
+from real_estate_scraper.items import ListingItem, PropertyItem, AddressItem
+from real_estate_scraper.spiders.base import BaseSpider
+from decouple import config
+import math
+import json
 
 
-class NekretnineSpider(scrapy.Spider):
+class NekretnineSpider(BaseSpider):
     name = "nekretnine"
     allowed_domains = ["nekretnine.rs"]
     start_urls = [
@@ -38,18 +41,40 @@ class NekretnineSpider(scrapy.Spider):
 
     def parse(self, response):
         # get all listings
-        items = response.css("div.advert-list h2 a::attr(href)").getall()
-        for item in items:
-            url = response.urljoin(item)
-            yield response.follow(url, callback=self.parse_listing)
+        urls = response.css("div.advert-list h2 a::attr(href)").getall()
+        for url in urls:
+            # yield response.follow(url, callback=self.parse_listing)
+            url = response.urljoin(url)
+            endpoint = "https://scraper-api.smartproxy.com/v2/scrape"
+            headers = {
+                "accept": "application/json",
+                "content-type": "application/json",
+                "authorization": "Basic " + config("SMARTPROXY_API_KEY"),
+            }
+            yield scrapy.Request(
+                url=endpoint,
+                method="POST",
+                headers=headers,
+                body=json.dumps({"url": url}),
+                callback=self.parse_listing,
+                errback=self.handle_error,
+                meta={
+                    "origin_url": url,
+                },
+            )
+
         # paginations
+        self.total_listings = response.css(
+            "h1 + div span:contains(oglasa)::text"
+        ).re_first(r"\d+")
+        self.total_listings = int(self.total_listings)
+        self.total_pages = math.ceil(self.total_listings / 20)
         max_page = 500
         for i in range(2, max_page + 1):
             next_url = "https://www.nekretnine.rs/stambeni-objekti/stanovi/izdavanje-prodaja/prodaja/grad/beograd/lista/po-stranici/1/stranica/{}/"
             yield response.follow(next_url.format(i), callback=self.parse)
 
     def parse_listing(self, response):
-        response = Selector(response=response)
         # listing loader
         listing_loader = ItemLoader(item=ListingItem(), selector=response)
         listing_loader.add_css("title", "h1::Text")
@@ -91,6 +116,28 @@ class NekretnineSpider(scrapy.Spider):
         property_loader.add_value("floor_number", floor_number)
         property_loader.add_value("total_floors", total_floors)
         pitem = property_loader.load_item()
+        # address loader
+        address_loader = ItemLoader(item=AddressItem(), selector=response)
+        address_loader.add_css(
+            "city", "script:contains(adsKeyword)::Text", re=r'location2:\s*"([^"]+)"'
+        )
+        address_loader.add_css(
+            "municipality",
+            "script:contains(adsKeyword)::Text",
+            re=r'location3:\s*"([^"]+)"',
+        )
+        address_loader.add_css(
+            "micro_location",
+            "script:contains(adsKeyword)::Text",
+            re=r'location4:\s*"([^"]+)"',
+        )
+        address_loader.add_css(
+            "latitude", "script:contains(ppMap)::Text", re=r"ppLat\s*=\s*([-\d.]+)"
+        )
+        address_loader.add_css(
+            "longitude", "script:contains(ppMap)::Text", re=r"ppLng\s*=\s*([-\d.]+)"
+        )
+        address_item = address_loader.load_item()
         yield {
             "listing_id": str(uuid.uuid4()),
             "source_id": listing.get("source_id"),
@@ -119,21 +166,11 @@ class NekretnineSpider(scrapy.Spider):
                 "property_state": pitem.get("property_state"),
             },
             "address": {
-                "city": response.css("script:contains(adsKeyword)::Text").re_first(
-                    r'location2:\s*"([^"]+)"'
-                ),
-                "municipality": response.css(
-                    "script:contains(adsKeyword)::Text"
-                ).re_first(r'location3:\s*"([^"]+)"'),
-                "micro_location": response.css(
-                    "script:contains(adsKeyword)::Text"
-                ).re_first(r'location4:\s*"([^"]+)"'),
-                "latitude": response.css("script:contains(ppMap)::Text").re_first(
-                    r"ppLat\s*=\s*([-\d.]+)"
-                ),
-                "longitude": response.css("script:contains(ppMap)::Text").re_first(
-                    r"ppLng\s*=\s*([-\d.]+)"
-                ),
+                "city": address_item.get("city"),
+                "municipality": address_item.get("municipality"),
+                "micro_location": address_item.get("micro_location"),
+                "latitude": address_item.get("latitude"),
+                "longitude": address_item.get("longitude"),
             },
             "source": {
                 "id": str(uuid.uuid4()),

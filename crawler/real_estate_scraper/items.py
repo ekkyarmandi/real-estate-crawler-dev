@@ -53,7 +53,7 @@ class PropertyItem(scrapy.Item):
         output_processor=TakeFirst(),
     )
     rooms = scrapy.Field(
-        input_processor=MapCompose(str.strip, as_float),
+        input_processor=MapCompose(as_float),
         output_processor=TakeFirst(),
     )
     property_state = scrapy.Field(

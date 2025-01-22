@@ -3,10 +3,8 @@ import math
 import requests
 import re
 import uuid
-import scrapy
 import jmespath
 import traceback
-from decouple import config
 
 from real_estate_scraper.func import clean_double_quotes
 from real_estate_scraper.database import get_db
@@ -14,8 +12,6 @@ from real_estate_scraper.spiders.base import BaseSpider
 from real_estate_scraper.items import PropertyItem
 from scrapy.loader import ItemLoader
 from models.error import Error
-
-from scrapy.selector import Selector
 
 
 class A4zidaSpider(BaseSpider):
@@ -31,21 +27,26 @@ class A4zidaSpider(BaseSpider):
             if url not in self.visited_urls:
                 url = response.urljoin(url)
                 self.visited_urls.append(url)
-                endpoint = "https://scraper-api.smartproxy.com/v2/scrape"
-                headers = {
-                    "accept": "application/json",
-                    "content-type": "application/json",
-                    "authorization": "Basic " + config("SMARTPROXY_API_KEY"),
-                }
-                yield scrapy.Request(
-                    url=endpoint,
-                    method="POST",
-                    headers=headers,
-                    body=json.dumps({"url": url}),
+                yield response.follow(
+                    url,
                     callback=self.parse_detail,
                     errback=self.handle_error,
-                    meta={"origin_url": url},
                 )
+                # endpoint = "https://scraper-api.smartproxy.com/v2/scrape"
+                # headers = {
+                #     "accept": "application/json",
+                #     "content-type": "application/json",
+                #     "authorization": "Basic " + config("SMARTPROXY_API_KEY"),
+                # }
+                # yield scrapy.Request(
+                #     url=endpoint,
+                #     method="POST",
+                #     headers=headers,
+                #     body=json.dumps({"url": url}),
+                #     callback=self.parse_detail,
+                #     errback=self.handle_error,
+                #     meta={"origin_url": url},
+                # )
 
         # find total properties listed in the page, then create pagination
         item_per_page = 0
@@ -67,9 +68,6 @@ class A4zidaSpider(BaseSpider):
 
     def parse_detail(self, response):
         try:
-            html = jmespath.search("results[0].content", response.json())
-            origin_url = response.meta["origin_url"]
-            response = Selector(text=html)
             # find property data
             data = self.find_property_data(response)
             lonlat = self.find_longitude_latitude(response)
@@ -174,9 +172,9 @@ class A4zidaSpider(BaseSpider):
                 "valid_from": None,  # COMMENT: not sure which data point to look
                 "valid_to": None,  # COMMENT: not sure which data point to look
                 "total_views": 0,
-                "url": origin_url,
+                "url": response.url,
                 "raw_data": {
-                    "html": html,
+                    "html": response.text,
                     "data": {
                         "property_data": data,
                         "geolocation_data": lonlat,
@@ -222,7 +220,7 @@ class A4zidaSpider(BaseSpider):
         except Exception as e:
             db = next(get_db())
             error_data = Error(
-                url=origin_url,
+                url=response.url,
                 error_type="Spider",
                 error_message=str(e),
                 error_traceback=traceback.format_exc(),
@@ -245,7 +243,7 @@ class A4zidaSpider(BaseSpider):
                 new_text = text[3:-1]
                 new_text = clean_double_quotes(new_text)
                 output = json.loads(new_text)
-            except Exception as err:
+            except Exception:
                 output = {}
         return output
 

@@ -1,13 +1,14 @@
 from itemloaders import ItemLoader
+from scrapy.selector import Selector
 import scrapy
 import uuid
-
-from itemloaders.processors import MapCompose
-from real_estate_scraper.items import ListingItem, PropertyItem, AddressItem
-from real_estate_scraper.spiders.base import BaseSpider
+import jmespath
 from decouple import config
 import math
 import json
+
+from real_estate_scraper.items import ListingItem, PropertyItem, AddressItem
+from real_estate_scraper.spiders.base import BaseSpider
 
 
 class NekretnineSpider(BaseSpider):
@@ -43,24 +44,9 @@ class NekretnineSpider(BaseSpider):
         # get all listings
         urls = response.css("div.advert-list h2 a::attr(href)").getall()
         for url in urls:
-            # yield response.follow(url, callback=self.parse_listing)
             url = response.urljoin(url)
-            endpoint = "https://scraper-api.smartproxy.com/v2/scrape"
-            headers = {
-                "accept": "application/json",
-                "content-type": "application/json",
-                "authorization": "Basic " + config("SMARTPROXY_API_KEY"),
-            }
-            yield scrapy.Request(
-                url=endpoint,
-                method="POST",
-                headers=headers,
-                body=json.dumps({"url": url}),
-                callback=self.parse_listing,
-                errback=self.handle_error,
-                meta={
-                    "origin_url": url,
-                },
+            yield response.follow(
+                url, callback=self.parse_listing, errback=self.handle_error
             )
 
         # paginations

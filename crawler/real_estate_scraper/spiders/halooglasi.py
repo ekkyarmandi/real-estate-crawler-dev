@@ -1,4 +1,3 @@
-from datetime import datetime
 import scrapy
 import math
 import re
@@ -6,14 +5,12 @@ import uuid
 import jmespath
 import json
 import traceback
-from decouple import config
 
 
 from real_estate_scraper.items import PropertyItem
 from real_estate_scraper.database import get_db
 from real_estate_scraper.decorators import json_finder
 from real_estate_scraper.spiders.base import BaseSpider
-from models import Agent
 from models.error import Error
 from scrapy.selector import Selector
 from scrapy.loader import ItemLoader
@@ -35,17 +32,8 @@ class HaloOglasiNekretnineSpider(BaseSpider):
             if url not in self.visited_urls:
                 url = response.urljoin(url)
                 self.visited_urls.append(url)
-                endpoint = "https://scraper-api.smartproxy.com/v2/scrape"
-                headers = {
-                    "accept": "application/json",
-                    "content-type": "application/json",
-                    "authorization": "Basic " + config("SMARTPROXY_API_KEY"),
-                }
-                yield scrapy.Request(
-                    url=endpoint,
-                    method="POST",
-                    headers=headers,
-                    body=json.dumps({"url": url}),
+                yield response.follow(
+                    url,
                     callback=self.parse_phonenumber,
                     errback=self.handle_error,
                     meta={
@@ -53,6 +41,24 @@ class HaloOglasiNekretnineSpider(BaseSpider):
                         "short_description": short_description,
                     },
                 )
+                # endpoint = "https://scraper-api.smartproxy.com/v2/scrape"
+                # headers = {
+                #     "accept": "application/json",
+                #     "content-type": "application/json",
+                #     "authorization": "Basic " + config("SMARTPROXY_API_KEY"),
+                # }
+                # yield scrapy.Request(
+                #     url=endpoint,
+                #     method="POST",
+                #     headers=headers,
+                #     body=json.dumps({"url": url}),
+                #     callback=self.parse_phonenumber,
+                #     errback=self.handle_error,
+                #     meta={
+                #         "origin_url": url,
+                #         "short_description": short_description,
+                #     },
+                # )
 
         # paginate
         total_count = 0
@@ -71,16 +77,17 @@ class HaloOglasiNekretnineSpider(BaseSpider):
                     for i in range(2, self.total_pages + 1):
                         next_url = response.url.split("?")[0] + "?page=" + str(i)
                         yield response.follow(next_url, callback=self.parse)
-            except Exception as e:
+            except Exception:
                 total_count = 0
 
     def parse_phonenumber(self, response):
         origin_url = response.meta.get("origin_url")
         short_description = response.meta.get("short_description")
-        response_text = jmespath.search("results[0].content", response.json())
-        selector = Selector(text=response_text)
-        property_data = self.find_property_data(selector)
-        agency_data = self.find_agency_data(selector)
+        response_text = response.text
+        # response_text = jmespath.search("results[0].content", response.json())
+        # selector = Selector(text=response_text)
+        property_data = self.find_property_data(response)
+        agency_data = self.find_agency_data(response)
 
         headers = {
             "content-type": "application/json",

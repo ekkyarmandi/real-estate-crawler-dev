@@ -14,15 +14,17 @@ class BaseSpider(scrapy.Spider):
 
     def handle_error(self, failure):
         db = next(get_db())
-        try:
-            url = self.url
-        except:
-            url = failure.request.url
+        url = failure.request.url
         error_data = Error(
             url=url,
             error_type="Spider",
             error_message=str(failure),
             error_traceback=traceback.format_exc(),
         )
-        db.add(error_data)
-        db.commit()
+        try:
+            db.add(error_data)
+            db.commit()
+            db.close()
+        except Exception as err:
+            if "unique_error_constraint" not in str(err):
+                print(err)

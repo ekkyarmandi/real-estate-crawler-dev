@@ -96,9 +96,9 @@ ITEM_PIPELINES = {
 # See https://docs.scrapy.org/en/latest/topics/downloader-middleware.html
 DOWNLOADER_MIDDLEWARES = {
     # "props.middlewares.PropertiesDownloaderMiddleware": 543,
-    # "scrapy.downloadermiddlewares.retry.RetryMiddleware": 90,
-    # "scrapy_proxies.RandomProxy": 100,
-    # "scrapy.downloadermiddlewares.httpproxy.HttpProxyMiddleware": 110,
+    "scrapy.downloadermiddlewares.retry.RetryMiddleware": 90,
+    "scrapy_proxies.RandomProxy": 100,
+    "scrapy.downloadermiddlewares.httpproxy.HttpProxyMiddleware": 110,
 }
 # See scrapy-proxies docs https://github.com/aivarsk/scrapy-proxies
 PROXY_LIST = "smartproxy.txt"

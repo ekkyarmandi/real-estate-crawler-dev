@@ -8,7 +8,6 @@
 from scrapy.exceptions import DropItem
 from datetime import datetime as dt
 from decouple import config
-from real_estate_scraper.func import change_value_to_set
 from models.listing_change import PreviousListing
 from real_estate_scraper.database import get_db
 from models.error import Report, Error
@@ -170,7 +169,7 @@ class SellersPipeline(BasePipeline):
         seller = (
             self.db.query(Seller)
             .filter(
-                Seller.source_seller_id == source_seller_id,
+                Seller.source_seller_id == str(source_seller_id),
                 Seller.name == seller_name,
                 Seller.seller_type == seller_type,
             )
@@ -205,7 +204,7 @@ class SellersPipeline(BasePipeline):
             if seller and seller.seller_type == "agency" and not seller.agent_id:
                 agent = (
                     self.db.query(Agent)
-                    .filter(Agent.registry_number == registry_number)
+                    .filter(Agent.registry_number == str(registry_number))
                     .first()
                 )
                 if agent:

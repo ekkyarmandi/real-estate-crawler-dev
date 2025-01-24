@@ -176,5 +176,5 @@ class NekretnineSpider(BaseSpider):
                 "active_since": None,
                 "tax_id": None,
             },
-            "images": [],
+            "images": response.css("#top figure img::attr(src)").getall(),
         }

@@ -302,14 +302,16 @@ class ListingPipeline(BasePipeline):
         except Exception as err:
             self.db.rollback()
             # Insert error to db
-            error_item = dict(
+            db = next(get_db())
+            error = Error(
                 url=item["url"],
                 error_type="Listing insertion",
                 error_message=str(err),
                 error_traceback=traceback.format_exc(),
             )
-            self.db.execute(error_insert_query, error_item)
-            self.db.commit()
+            db.add(error)
+            db.commit()
+            db.close()
             raise DropItem("Listing insertion failed: {0}".format(err))
 
         # remove listing url from error if it exists
@@ -590,14 +592,16 @@ class ListingChangePipeline(BasePipeline):
                 except Exception as err:
                     self.psql.conn.rollback()
                     # Insert error to db
-                    error_item = dict(
+                    db = next(get_db())
+                    error = Error(
                         url=item["url"],
                         error_type="Listing changes insertion",
                         error_message=str(err),
                         error_traceback=traceback.format_exc(),
                     )
-                    self.psql.cursor.execute(error_insert_query, error_item)
-                    self.psql.conn.commit()
+                    db.add(error)
+                    db.commit()
+                    db.close()
                     raise ValueError(
                         "Error on listing changes insertion: {0}".format(err)
                     )

@@ -47,7 +47,10 @@ async def send_queues():
     count = 0
     for queue in queues:
         chat_id = queue.user.chat_id
-        prop = queue.listing.property[0]
+        prop = queue.listing.property
+        if len(prop) == 0:
+            continue
+        prop = prop[0]
         listing_item = {
             "url": queue.listing.url,
             "city": queue.listing.city,

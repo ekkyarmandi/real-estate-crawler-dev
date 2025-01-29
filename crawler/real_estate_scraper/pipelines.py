@@ -322,7 +322,7 @@ class ListingPipeline(BasePipeline):
 
     def open_spider(self, spider):
         # Load exisiting urls
-        if spider.settings.get("LOAD_EXISTING_URLS"):
+        if eval(spider.settings.get("LOAD_EXISTING_URLS")):
             q = text(
                 f"SELECT url FROM listings_listing WHERE url LIKE '%{spider.name}%';"
             )

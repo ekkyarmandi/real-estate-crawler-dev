@@ -5,9 +5,9 @@ def settings_as_message(settings: dict) -> str:
     is_enabled = "✅ *Enabled*" if settings.get("is_enabled", True) else "❌ *Disabled*"
     message = (
         "⚙️ *Settings*\n"
-        f"🏢 *City:* {settings['city']}\n"
-        f"💰 *Price:* {settings['price']} €\n"
-        f"📏 *Size:* {settings['size']} m2\n"
+        f"🏙️ *City:* {settings['city']}\n"
+        f"💰 *Price:* €{settings['price']}\n"
+        f"📐 *Size:* {settings['size']} m2\n"
         f"🏠 *Rooms:* {settings['rooms']}\n"
         f"{is_enabled}\n"
     )

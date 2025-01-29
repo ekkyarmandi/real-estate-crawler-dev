@@ -6,11 +6,7 @@ def create_settings_markup(settings: dict) -> InlineKeyboardMarkup:
     is_enabled = "✅ Enabled" if settings.get("is_enabled", True) else "❌ Disabled"
     return InlineKeyboardMarkup(
         [
-            [
-                InlineKeyboardButton(
-                    f"🏢 City: {settings['city']}", callback_data="city"
-                )
-            ],
+            [InlineKeyboardButton(f"🏙 City: {settings['city']}", callback_data="city")],
             [
                 InlineKeyboardButton(
                     f"💰 Price: {settings['price']}",
@@ -19,7 +15,7 @@ def create_settings_markup(settings: dict) -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(
-                    f"📏 Size: {settings['size']}",
+                    f"📐 Size: {settings['size']}",
                     callback_data="size",
                 )
             ],

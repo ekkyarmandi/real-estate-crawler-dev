@@ -44,10 +44,11 @@ class NekretnineSpider(BaseSpider):
         # get all listings
         urls = response.css("div.advert-list h2 a::attr(href)").getall()
         for url in urls:
-            url = response.urljoin(url)
-            yield response.follow(
-                url, callback=self.parse_listing, errback=self.handle_error
-            )
+            if url not in self.visited_urls:
+                url = response.urljoin(url)
+                yield response.follow(
+                    url, callback=self.parse_listing, errback=self.handle_error
+                )
 
         # paginations
         self.total_listings = response.css(
@@ -61,6 +62,7 @@ class NekretnineSpider(BaseSpider):
             yield response.follow(next_url.format(i), callback=self.parse)
 
     def parse_listing(self, response):
+        self.visited_urls.append(response.url)
         # listing loader
         listing_loader = ItemLoader(item=ListingItem(), selector=response)
         listing_loader.add_css("title", "h1::Text")

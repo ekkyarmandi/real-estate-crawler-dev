@@ -284,9 +284,6 @@ class ListingPipeline(BasePipeline):
             price=item["price"],
             price_currency=item["price_currency"],
             status=item["status"],
-            valid_from=item["valid_from"],
-            valid_to=item["valid_to"],
-            total_views=item["total_views"],
             city=item["address"]["city"],
             municipality=item["address"]["municipality"],
             micro_location=item["address"]["micro_location"],
@@ -511,8 +508,6 @@ class ListingChangePipeline(BasePipeline):
         SELECT
             ll.price,
             ll.status,
-            ll.valid_from,
-            ll.valid_to,
             ll.detail_description,
             ll.short_description,
             rd.id AS raw_data_id
@@ -525,8 +520,6 @@ class ListingChangePipeline(BasePipeline):
         columns = [
             "price",
             "status",
-            "valid_from",
-            "valid_to",
             "detail_description",
             "short_description",
             "raw_data_id",

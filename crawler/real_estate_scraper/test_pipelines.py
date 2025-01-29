@@ -11,9 +11,6 @@ class TestOutputStructurePipeline:
         "price": (str, int, float, type(None)),
         "price_currency": (str, type(None)),
         "status": str,
-        "valid_from": (str, type(None)),
-        "valid_to": (str, type(None)),
-        "total_views": (str, int, type(None)),
         "url": str,
         "raw_data": dict,
         "property": {

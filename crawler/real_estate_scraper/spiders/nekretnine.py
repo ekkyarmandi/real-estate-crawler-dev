@@ -135,9 +135,6 @@ class NekretnineSpider(BaseSpider):
             "price": listing.get("price"),
             "price_currency": "EUR",
             "status": "active",
-            "valid_from": None,
-            "valid_to": None,
-            "total_views": 0,
             "url": response.url,
             "raw_data": {
                 "html": response.text,

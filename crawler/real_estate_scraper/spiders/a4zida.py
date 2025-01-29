@@ -169,9 +169,6 @@ class A4zidaSpider(BaseSpider):
                 "price": data.get("price", page["price"]),
                 "price_currency": "EUR",
                 "status": "active",
-                "valid_from": None,  # COMMENT: not sure which data point to look
-                "valid_to": None,  # COMMENT: not sure which data point to look
-                "total_views": 0,
                 "url": response.url,
                 "raw_data": {
                     "html": response.text,

@@ -71,7 +71,8 @@ class HaloOglasiNekretnineSpider(BaseSpider):
                 ).group("total_count")
                 total_count = int(total_count)
                 self.total_listings = total_count
-                self.total_pages = math.ceil(total_count / item_per_page)
+                # self.total_pages = math.ceil(total_count / item_per_page)
+                self.total_pages = 100
                 if self.total_pages:
                     self.is_paginating = True
                     for i in range(2, self.total_pages + 1):
@@ -223,9 +224,6 @@ class HaloOglasiNekretnineSpider(BaseSpider):
                     "OtherFields.cena_d_unit_s", property_data
                 ),
                 "status": "active",  # if the property is not listed anymore put it as removed
-                "valid_from": property_data.get("ValidFrom"),
-                "valid_to": property_data.get("ValidTo"),
-                "total_views": property_data.get("TotalViews"),
                 # "agency_fee": None,
                 # "agency_fee_unit": property_data["OtherFields"][
                 #     "agencijska_sifra_oglasa_s"

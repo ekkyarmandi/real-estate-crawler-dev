@@ -270,8 +270,11 @@ class ListingPipeline(BasePipeline):
         # query the existing listing by url
         q = text(f"SELECT * FROM listings_listing WHERE url='{item['url']}';")
         existing_listing = self.db.execute(q).fetchone()
-        if existing_listing:
+        if not existing_listing:
+            spider.total_new_listings += 1
+        else:
             item["listing_id"] = existing_listing[2]
+
         # construct listing data
         listing_item = dict(
             listing_id=item["listing_id"],
@@ -309,6 +312,7 @@ class ListingPipeline(BasePipeline):
             db.add(error)
             db.commit()
             db.close()
+            spider.total_new_listings -= 1
             raise DropItem("Listing insertion failed: {0}".format(err))
 
         # remove listing url from error if it exists
@@ -341,7 +345,7 @@ class ListingPipeline(BasePipeline):
         total_pages = getattr(spider, "total_pages", 0)
         total_listings = getattr(spider, "total_listings", 0)
         visited_urls = getattr(spider, "visited_urls", [])
-        total_actual_listings = len(visited_urls)
+        total_actual_listings = len(list(set(visited_urls)))
         # Get spider stats
         stats = spider.crawler.stats.get_stats()
         # Calculate elapsed time

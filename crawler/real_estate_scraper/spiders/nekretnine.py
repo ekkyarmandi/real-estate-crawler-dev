@@ -46,6 +46,7 @@ class NekretnineSpider(BaseSpider):
         for url in urls:
             if url not in self.visited_urls:
                 url = response.urljoin(url)
+                self.visited_urls.append(url)
                 yield response.follow(
                     url, callback=self.parse_listing, errback=self.handle_error
                 )
@@ -62,7 +63,6 @@ class NekretnineSpider(BaseSpider):
             yield response.follow(next_url.format(i), callback=self.parse)
 
     def parse_listing(self, response):
-        self.visited_urls.append(response.url)
         # listing loader
         listing_loader = ItemLoader(item=ListingItem(), selector=response)
         listing_loader.add_css("title", "h1::Text")

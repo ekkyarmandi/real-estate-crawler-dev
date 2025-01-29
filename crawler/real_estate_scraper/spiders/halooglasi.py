@@ -71,8 +71,8 @@ class HaloOglasiNekretnineSpider(BaseSpider):
                 ).group("total_count")
                 total_count = int(total_count)
                 self.total_listings = total_count
-                # self.total_pages = math.ceil(total_count / item_per_page)
-                self.total_pages = 100
+                self.total_pages = math.ceil(total_count / item_per_page)
+                # self.total_pages = 100
                 if self.total_pages:
                     self.is_paginating = True
                     for i in range(2, self.total_pages + 1):

@@ -4,12 +4,14 @@ from constants import ROOM_OPTIONS, CITY_OPTIONS
 
 def create_settings_markup(settings: dict) -> InlineKeyboardMarkup:
     is_enabled = "✅ Enabled" if settings.get("is_enabled", True) else "❌ Disabled"
+    price = settings.get("price").split("-")
+    settings_price = f"€{int(price[0]):,d}-{int(price[1]):,d}"
     return InlineKeyboardMarkup(
         [
             [InlineKeyboardButton(f"🏙 City: {settings['city']}", callback_data="city")],
             [
                 InlineKeyboardButton(
-                    f"💰 Price: {settings['price']}",
+                    f"💰 Price: {settings_price}",
                     callback_data="price",
                 )
             ],

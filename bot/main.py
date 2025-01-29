@@ -162,6 +162,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "• Format: X-Y where X < Y\n"
             "• Minimum value > 0\n"
             "• Must include hyphen (-)\n"
+            "• Enter price range: min-max € (e.g., 150000-350000)"
         )
         await query.edit_message_text(text=message)
         return PRICE
@@ -172,6 +173,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "• Format: X-Y where X < Y\n"
             "• Minimum value > 0\n"
             "• Must include hyphen (-)\n"
+            "• Enter apartment size range: min-max (e.g., 45-80)"
         )
         await query.edit_message_text(text=message)
         return SIZE

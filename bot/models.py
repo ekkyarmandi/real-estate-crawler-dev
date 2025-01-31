@@ -30,8 +30,17 @@ class User(Base):
         city = settings["city"]
         price_min, price_max = settings["price"].split("-")
         size_min, size_max = settings["size"].split("-")
-        rooms = settings["rooms"]
-        return f"city = '{city}' AND price >= {price_min} AND price <= {price_max} AND size_m2 >= {size_min} AND size_m2 <= {size_max} AND rooms = {rooms}"
+        rooms = settings["rooms"].split(",")
+        rooms_clause = " OR ".join([f"rooms = {room}" for room in rooms])
+        rules = [
+            f"city = '{city}'",
+            f"price >= {price_min}",
+            f"price <= {price_max}",
+            f"size_m2 >= {size_min}",
+            f"size_m2 <= {size_max}",
+            f"({rooms_clause})",
+        ]
+        return " AND ".join(rules)
 
 
 class Queue(Base):

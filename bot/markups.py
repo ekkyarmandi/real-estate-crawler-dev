@@ -57,7 +57,7 @@ def create_select_room_markup(selected_rooms=None):
     keyboard = []
     for room in ROOM_OPTIONS:
         # Add checkmark if room is selected
-        text = f"✅ {room}" if room in selected_rooms else room
+        text = f"✅ {room}" if room in selected_rooms else f"🏠 {room}"
         keyboard.append([InlineKeyboardButton(text, callback_data=f"room_{room}")])
     # Add Done button
     keyboard.append([InlineKeyboardButton("✔️ Done", callback_data="rooms_done")])

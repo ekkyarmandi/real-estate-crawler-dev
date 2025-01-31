@@ -241,7 +241,8 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return ConversationHandler.END
     elif query.data == "rooms_done":
-        context.user_data["settings"]["rooms"] = list(context.user_data["temp_rooms"])
+        temp_rooms = sorted(context.user_data["temp_rooms"])
+        context.user_data["settings"]["rooms"] = list(temp_rooms)
         await configure_settings_command(update, context)
         return ConversationHandler.END
     elif query.data == "rooms_cancel":

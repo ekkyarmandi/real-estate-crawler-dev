@@ -7,9 +7,10 @@ def create_settings_markup(settings: dict) -> InlineKeyboardMarkup:
     price = settings.get("price").split("-")
     settings_price = f"€{int(price[0]):,d}-{int(price[1]):,d}"
     rooms = ",".join(settings.get("rooms", []))
+    cities = ",".join(settings.get("city", []))
     return InlineKeyboardMarkup(
         [
-            [InlineKeyboardButton(f"🏙 City: {settings['city']}", callback_data="city")],
+            [InlineKeyboardButton(f"🏙 City: {cities}", callback_data="city")],
             [
                 InlineKeyboardButton(
                     f"💰 Price: {settings_price}",
@@ -42,13 +43,16 @@ def create_settings_markup(settings: dict) -> InlineKeyboardMarkup:
     )
 
 
-def create_select_city_markup():
-    return InlineKeyboardMarkup(
-        [
-            [InlineKeyboardButton(f"📍 {city}", callback_data=city)]
-            for city in CITY_OPTIONS
-        ]
-    )
+def create_select_city_markup(selected_cities=None):
+    keyboard = []
+    for city in CITY_OPTIONS:
+        # Add checkmark if city is selected
+        text = f"✅ {city}" if city in selected_cities else f"📍 {city}"
+        keyboard.append([InlineKeyboardButton(text, callback_data=f"city_{city}")])
+    # Add Done and Cancel buttons
+    keyboard.append([InlineKeyboardButton("✔️ Done", callback_data="cities_done")])
+    keyboard.append([InlineKeyboardButton("❌ Cancel", callback_data="cities_cancel")])
+    return InlineKeyboardMarkup(keyboard)
 
 
 def create_select_room_markup(selected_rooms=None):

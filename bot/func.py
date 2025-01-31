@@ -6,9 +6,10 @@ def settings_as_message(settings: dict) -> str:
     price = settings.get("price").split("-")
     settings_price = f"€{int(price[0]):,d}-{int(price[1]):,d}"
     rooms = ",".join(settings.get("rooms"))
+    cities = ",".join(settings.get("city"))
     message = (
         "⚙️ *Settings*\n"
-        f"🏙️ *City:* {settings['city']}\n"
+        f"🏙️ *City:* {cities}\n"
         f"💰 *Price:* {settings_price}\n"
         f"📐 *Size:* {settings['size']} m2\n"
         f"🏠 *Rooms:* {rooms}\n"

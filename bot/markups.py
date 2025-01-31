@@ -6,6 +6,7 @@ def create_settings_markup(settings: dict) -> InlineKeyboardMarkup:
     is_enabled = "✅ Enabled" if settings.get("is_enabled", True) else "❌ Disabled"
     price = settings.get("price").split("-")
     settings_price = f"€{int(price[0]):,d}-{int(price[1]):,d}"
+    rooms = ",".join(settings.get("rooms", []))
     return InlineKeyboardMarkup(
         [
             [InlineKeyboardButton(f"🏙 City: {settings['city']}", callback_data="city")],
@@ -23,7 +24,7 @@ def create_settings_markup(settings: dict) -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(
-                    f"🏠 Rooms: {settings['rooms']}",
+                    f"🏠 Rooms: {rooms}",
                     callback_data="rooms",
                 )
             ],
@@ -50,13 +51,18 @@ def create_select_city_markup():
     )
 
 
-def create_select_room_markup():
-    return InlineKeyboardMarkup(
-        [
-            [InlineKeyboardButton(f"🏠 {room}", callback_data=room)]
-            for room in ROOM_OPTIONS
-        ]
-    )
+def create_select_room_markup(selected_rooms=None):
+    if selected_rooms is None:
+        selected_rooms = []
+    keyboard = []
+    for room in ROOM_OPTIONS:
+        # Add checkmark if room is selected
+        text = f"✅ {room}" if room in selected_rooms else room
+        keyboard.append([InlineKeyboardButton(text, callback_data=f"room_{room}")])
+    # Add Done button
+    keyboard.append([InlineKeyboardButton("✔️ Done", callback_data="rooms_done")])
+    keyboard.append([InlineKeyboardButton("❌ Cancel", callback_data="rooms_cancel")])
+    return InlineKeyboardMarkup(keyboard)
 
 
 def create_enable_markup():

@@ -99,8 +99,12 @@ async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     db = next(get_db())
     chat_id = str(update.message.chat.id)
     user = db.query(User).filter(User.chat_id == chat_id).first()
-    # Convert user settings as message
+    # load user settings as dictionary
     user_settings = json.loads(user.settings)
+    # Convert user settings as message
+    settings_rooms = user_settings["rooms"]
+    if isinstance(settings_rooms, str):
+        user_settings["rooms"] = settings_rooms.split(",")
     await update.message.reply_text(
         settings_as_message(user_settings),
         reply_markup=configure_markup,
@@ -113,12 +117,16 @@ async def configure_settings_command(
 ):
     if context.user_data.get("settings"):
         settings = context.user_data["settings"]
+        if "temp_rooms" not in context.user_data:
+            context.user_data["temp_rooms"] = list(settings["rooms"])
     else:
         db = next(get_db())
         chat_id = str(update.callback_query.message.chat.id)
         user = db.query(User).filter(User.chat_id == chat_id).first()
         settings = json.loads(user.settings)
+        settings["rooms"] = settings["rooms"].split(",")
         context.user_data["settings"] = settings
+        context.user_data["temp_rooms"] = list(settings["rooms"])
     settings_markup = create_settings_markup(settings)
     message = dict(
         text="*Configure your settings:*",
@@ -178,9 +186,11 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(text=message)
         return SIZE
     elif query.data == "rooms":
-        reply_markup = create_select_room_markup()
+        # Use temporary rooms for initial selection
+        selected_rooms = context.user_data.get("temp_rooms", [])
+        reply_markup = create_select_room_markup(selected_rooms)
         message = dict(
-            text="*Select number of rooms:*",
+            text="*Select number of rooms \(multi\-select\):*",
             reply_markup=reply_markup,
             parse_mode=ParseMode.MARKDOWN_V2,
         )
@@ -210,13 +220,39 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(text="Settings change cancelled!")
         return ConversationHandler.END
 
-    # Handle city and room selection
-    if query.data in CITY_OPTIONS:
-        context.user_data["settings"]["city"] = query.data
+    # Handle room selection
+    if query.data.startswith("room_"):
+        room = query.data[5:]  # Remove "room_" prefix
+        # Get current selected rooms from temporary storage
+        selected_rooms = context.user_data.get("temp_rooms", [])
+        # Toggle selection
+        if room in selected_rooms:
+            selected_rooms.remove(room)
+        else:
+            selected_rooms.append(room)
+        # Update temporary storage
+        context.user_data["temp_rooms"] = selected_rooms
+        # Update the markup with new selection
+        reply_markup = create_select_room_markup(selected_rooms)
+        await query.edit_message_text(
+            text="*Select number of rooms \(multi\-select\):*",
+            reply_markup=reply_markup,
+            parse_mode=ParseMode.MARKDOWN_V2,
+        )
+        return ConversationHandler.END
+    elif query.data == "rooms_done":
+        context.user_data["settings"]["rooms"] = list(context.user_data["temp_rooms"])
         await configure_settings_command(update, context)
         return ConversationHandler.END
-    if query.data in ROOM_OPTIONS:
-        context.user_data["settings"]["rooms"] = query.data
+    elif query.data == "rooms_cancel":
+        if "temp_rooms" in context.user_data:
+            del context.user_data["temp_rooms"]
+        await configure_settings_command(update, context)
+        return ConversationHandler.END
+
+    # Handle city and enable/disable selection
+    if query.data in CITY_OPTIONS:
+        context.user_data["settings"]["city"] = query.data
         await configure_settings_command(update, context)
         return ConversationHandler.END
     elif query.data in ["enable", "disable"]:
@@ -254,8 +290,13 @@ async def save_settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
         db = next(get_db())
         chat_id = str(update.callback_query.message.chat.id)
         user = db.query(User).filter(User.chat_id == chat_id).first()
-        new_settings = json.dumps(context.user_data["settings"])
-        is_enabled = context.user_data["settings"].get("is_enabled", True)
+        settings = context.user_data.get("settings")
+        # stringify settings rooms
+        if isinstance(settings["rooms"], list):
+            rooms = list(map(str, settings["rooms"]))
+            settings["rooms"] = ",".join(rooms)
+        new_settings = json.dumps(settings)
+        is_enabled = settings.get("is_enabled", True)
         if user.settings != new_settings and is_enabled:
             user.settings = new_settings
             db.commit()
@@ -306,6 +347,12 @@ async def cancel_settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id = str(update.callback_query.message.chat.id)
         user = db.query(User).filter(User.chat_id == chat_id).first()
         context.user_data["settings"] = json.loads(user.settings)
+        # split the rooms
+        settings_rooms = context.user_data["settings"]["rooms"]
+        settings_rooms = settings_rooms.split(",")
+        context.user_data["settings"]["rooms"] = settings_rooms
+        # reset the rooms
+        context.user_data["temp_rooms"] = context.user_data["settings"]["rooms"]
     return ConversationHandler.END
 
 

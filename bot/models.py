@@ -32,18 +32,26 @@ class User(Base):
         size_min, size_max = settings["size"].split("-")
         # city clause
         cities = settings["city"].split(",")
-        city_clause = " OR ".join([f"city = '{city}'" for city in cities])
+        if len(cities) > 1:
+            city_clause = " OR ".join([f"city = '{city}'" for city in cities])
+            city_clause = f"({city_clause})"
+        else:
+            city_clause = f"city = '{cities[0]}'"
         # rooms clause
         rooms = settings["rooms"].split(",")
-        rooms_clause = " OR ".join([f"rooms = {room}" for room in rooms])
+        if len(rooms) > 1:
+            rooms_clause = " OR ".join([f"rooms = {room}" for room in rooms])
+            rooms_clause = f"({rooms_clause})"
+        else:
+            rooms_clause = f"rooms = {rooms[0]}"
         # rules
         rules = [
-            f"({city_clause})",
+            f"{city_clause}",
             f"price >= {price_min}",
             f"price <= {price_max}",
             f"size_m2 >= {size_min}",
             f"size_m2 <= {size_max}",
-            f"({rooms_clause})",
+            f"{rooms_clause}",
         ]
         return " AND ".join(rules)
 

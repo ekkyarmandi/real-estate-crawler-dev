@@ -130,8 +130,10 @@ async def configure_settings_command(
         chat_id = str(update.callback_query.message.chat.id)
         user = db.query(User).filter(User.chat_id == chat_id).first()
         settings = json.loads(user.settings)
-        settings["rooms"] = settings["rooms"].split(",")
-        settings["city"] = settings["city"].split(",")
+        if isinstance(settings["rooms"], str):
+            settings["rooms"] = settings["rooms"].split(",")
+        if isinstance(settings["city"], str):
+            settings["city"] = settings["city"].split(",")
         context.user_data["settings"] = settings
         context.user_data["temp_rooms"] = list(settings["rooms"])
         context.user_data["temp_city"] = list(settings["city"])
@@ -335,6 +337,9 @@ async def save_settings(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if isinstance(settings["rooms"], list):
             rooms = list(map(str, settings["rooms"]))
             settings["rooms"] = ",".join(rooms)
+        if isinstance(settings["city"], list):
+            cities = list(map(str, settings["city"]))
+            settings["city"] = ",".join(cities)
         new_settings = json.dumps(settings)
         is_enabled = settings.get("is_enabled", True)
         if user.settings != new_settings and is_enabled:

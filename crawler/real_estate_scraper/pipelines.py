@@ -22,6 +22,7 @@ import json
 import traceback
 import jmespath
 import uuid
+import re
 from real_estate_scraper.templates.sql.listing import listing_insert_query
 from real_estate_scraper.templates.sql.error import error_insert_query
 from models.property import Property
@@ -293,7 +294,10 @@ class ListingPipeline(BasePipeline):
             latitude=item["address"]["latitude"],
             longitude=item["address"]["longitude"],
         )
-        if not listing_item["price"]:
+        listing_price = item["price"]
+        if not listing_price:
+            listing_item["price"] = -1
+        elif isinstance(listing_price, str) and not re.search(r"\d+", listing_price):
             listing_item["price"] = -1
         # insert value
         try:

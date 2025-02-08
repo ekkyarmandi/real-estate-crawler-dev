@@ -6,8 +6,16 @@ def create_settings_markup(settings: dict) -> InlineKeyboardMarkup:
     is_enabled = "✅ Enabled" if settings.get("is_enabled", True) else "❌ Disabled"
     price = settings.get("price").split("-")
     settings_price = f"€{int(price[0]):,d}-{int(price[1]):,d}"
-    rooms = ",".join(settings.get("rooms", []))
-    cities = ",".join(settings.get("city", []))
+    rooms_value = settings.get("rooms")
+    if isinstance(rooms_value, list):
+        rooms = ",".join(rooms_value)
+    else:
+        rooms = rooms_value
+    cities_value = settings.get("city")
+    if isinstance(cities_value, list):
+        cities = ",".join(cities_value)
+    else:
+        cities = cities_value
     return InlineKeyboardMarkup(
         [
             [InlineKeyboardButton(f"🏙 City: {cities}", callback_data="city")],

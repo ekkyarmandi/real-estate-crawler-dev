@@ -13,7 +13,10 @@ class PreviousListing:
 
     def validate_price(self):
         if self.price:
-            try:
-                self.price = round(float(self.price), 2)
-            except (ValueError, TypeError):
+            if isinstance(self.price, str) and not re.search(r"\d+", self.price):
                 self.price = -1
+            else:
+                try:
+                    self.price = round(float(self.price), 2)
+                except (ValueError, TypeError):
+                    self.price = -1

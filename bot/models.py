@@ -107,6 +107,7 @@ class Property(Base):
 
 
 class CustomListing:
+    id: str | UUID
     url: str
     city: str
     price: float
@@ -124,6 +125,34 @@ class CustomListing:
         self.municipality = kwargs.get("municipality", "")
         self.micro_location = kwargs.get("micro_location", "")
         self.first_seen_at = kwargs.get("first_seen_at", dt.now())
+
+    def validate_settings(self, settings):
+        settings = json.loads(settings)
+        price_min, price_max = settings["price"].split("-")
+        size_min, size_max = settings["size"].split("-")
+        rooms = settings["rooms"].split(",")
+        rooms = [float(room) for room in rooms]
+        cities = settings["city"].split(",")
+        is_enabled = settings.get("is_enabled", True)
+        if not is_enabled:
+            return False
+        # is listing.city is contain settings.city?
+        if self.city and not any(city in self.city for city in cities):
+            return False
+        # is listing.rooms is equal to settings.rooms?
+        elif float(self.rooms) not in [float(room) for room in rooms]:
+            return False
+        # is listing.price is between price min and price max?
+        elif self.price and not (
+            float(price_min) < float(self.price) < float(price_max)
+        ):
+            return False
+        # is listing.size is between size min and size max?
+        elif self.size_m2 and not (
+            float(size_min) < float(self.size_m2) < float(size_max)
+        ):
+            return False
+        return True
 
     def as_markdown(self):
         publication_date = self.first_seen_at.strftime("%Y-%m-%d")

@@ -235,19 +235,18 @@ class ListingPipeline(BasePipeline):
         q = text(
             f"""
             SELECT
-                listings.id,
-                listings.url,
-                listings.city,
-                listings.price,
-                listings.municipality,
-                listings.micro_location,
-                COALESCE(MAX(properties.size_m2), 0) AS size_m2,
-                COALESCE(MAX(properties.rooms), 0) AS rooms
-            FROM listings_listing as listings
-            JOIN listings_property as properties ON listings.id = properties.listing_id
-            WHERE listings.created_at >= '{today}'
-            AND listings.url LIKE '%{spider.name}%'
-            GROUP BY listings.id;
+                ll.id,
+                ll.url,
+                ll.city,
+                ll.price,
+                ll.municipality,
+                ll.micro_location,
+                lp.size_m2,
+                lp.rooms
+            FROM listings_listing as ll
+            JOIN listings_property as lp ON lp.listing_id = ll.id
+            WHERE ll.created_at >= '{today}'
+            AND ll.price > 0 AND ll.url LIKE '%{spider.name}%';
             """
         )
         result = self.db.execute(q)

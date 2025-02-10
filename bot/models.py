@@ -141,7 +141,7 @@ class CustomListing:
         if self.city and not any(city in self.city for city in cities):
             return False
         # is listing.rooms is equal to settings.rooms?
-        elif float(self.rooms) not in [float(room) for room in rooms]:
+        elif self.rooms and float(self.rooms) not in [float(room) for room in rooms]:
             return False
         # is listing.price is between price min and price max?
         elif self.price and not (
@@ -149,8 +149,11 @@ class CustomListing:
         ):
             return False
         # is listing.size is between size min and size max?
-        elif self.size_m2 and not (
-            float(size_min) < float(self.size_m2) < float(size_max)
+        elif (
+            self.size_m2
+            and size_min
+            and size_max
+            and not (float(size_min) < float(self.size_m2) < float(size_max))
         ):
             return False
         return True

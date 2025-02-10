@@ -117,6 +117,7 @@ class CustomListing:
     micro_location: str
 
     def __init__(self, **kwargs):
+        self.id = kwargs.get("id", "")
         self.url = kwargs.get("url", "")
         self.city = kwargs.get("city", "")
         self.price = kwargs.get("price", 0.0)

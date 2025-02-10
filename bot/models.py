@@ -158,9 +158,6 @@ class CustomListing:
             return False
         return True
 
-    def has_missings(self):
-        return not self.city or not self.price or not self.size_m2 or not self.rooms
-
     def as_markdown(self):
         # replace the missings value with empty strings
         if not self.size_m2:

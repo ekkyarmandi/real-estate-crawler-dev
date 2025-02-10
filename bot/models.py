@@ -158,6 +158,9 @@ class CustomListing:
             return False
         return True
 
+    def has_missings(self):
+        return not self.city or not self.price or not self.size_m2 or not self.rooms
+
     def as_markdown(self):
         publication_date = self.first_seen_at.strftime("%Y-%m-%d")
         location = f"{self.city} - {self.municipality} - {self.micro_location}"

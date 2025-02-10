@@ -62,6 +62,8 @@ async def send_queues():
             "first_seen_at": queue.listing.first_seen_at,
         }
         listing = CustomListing(**listing_item)
+        if listing.has_missings():
+            continue
         message = listing.as_markdown()
 
         # Send message and update queue if successful

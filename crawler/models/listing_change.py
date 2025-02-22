@@ -5,10 +5,13 @@ from datetime import datetime as dt
 class PreviousListing:
     def __init__(self, **kwargs):
         self.raw_data_id = kwargs.get("raw_data_id")
+        self.url = kwargs.get("url")
         self.price = kwargs.get("price")
         self.status = kwargs.get("status")
         self.short_description = kwargs.get("short_description")
         self.detail_description = kwargs.get("detail_description")
+        self.size_m2 = kwargs.get("size_m2")
+        self.rooms = kwargs.get("rooms")
         self.validate_price()
 
     def validate_price(self):

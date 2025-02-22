@@ -219,7 +219,7 @@ class ListingPipeline(BasePipeline):
         super().__init__()
 
     def __queue_new_listings(self, spider):
-        today = dt.now().strftime(r"%Y-%m-%d")
+        today = dt.now().strftime(r"%Y-%m-01")
         users = self.db.query(User).all()
         # query new listings
         cols = [
@@ -255,8 +255,8 @@ class ListingPipeline(BasePipeline):
         listings = [dict(zip(cols, listing)) for listing in listings]
         listings = [CustomListing(**item) for item in listings]
         # send all the listings via telegram bot as notifications
-        for user in users:
-            for listing in listings:
+        for listing in listings:
+            for user in users:
                 if listing.validate_settings(user.settings):
                     # create queue
                     queue = Queue(listing_id=listing.id, user_id=user.id)
@@ -304,6 +304,10 @@ class ListingPipeline(BasePipeline):
             self.db.commit()
         except Exception as err:
             self.db.rollback()
+            spider.total_new_listings -= 1
+            if not listing_item.get("title"):
+                # TODO: update the listing status to removed
+                raise DropItem("Listing insertion failed: {0}".format(err))
             # Insert error to db
             db = next(get_db())
             error = Error(
@@ -315,7 +319,6 @@ class ListingPipeline(BasePipeline):
             db.add(error)
             db.commit()
             db.close()
-            spider.total_new_listings -= 1
             raise DropItem("Listing insertion failed: {0}".format(err))
 
         # remove listing url from error if it exists
@@ -514,10 +517,13 @@ class ListingChangePipeline(BasePipeline):
         # query existing listing
         q = f"""
         SELECT
+            ll.url,
             ll.price,
             ll.status,
             ll.detail_description,
             ll.short_description,
+            lp.size_m2,
+            lp.rooms,
             rd.id AS raw_data_id
         FROM listings_listing ll
         JOIN listings_property lp ON lp.listing_id = ll.id
@@ -526,10 +532,13 @@ class ListingChangePipeline(BasePipeline):
         """
         self.psql.cursor.execute(q)
         columns = [
+            "url",
             "price",
             "status",
             "detail_description",
             "short_description",
+            "size_m2",
+            "rooms",
             "raw_data_id",
         ]
         listing = self.psql.cursor.fetchone()  # existing listing
@@ -538,10 +547,24 @@ class ListingChangePipeline(BasePipeline):
         elif listing:
             listing = dict(zip(columns, listing))
             previous_listing = PreviousListing(**listing)
-            new_listing = PreviousListing(**item)
+            new_listing = PreviousListing(
+                price=item["price"],
+                status=item["status"],
+                short_description=item["short_description"],
+                detail_description=item["detail_description"],
+                size_m2=item["property"]["size_m2"],
+                rooms=item["property"]["rooms"],
+            )
             # check the changes
+            columns_to_check = [
+                "price",
+                "short_description",
+                "detail_description",
+                "size_m2",
+                "rooms",
+            ]
             change_items = []
-            for col in ["price", "short_description", "detail_description"]:
+            for col in columns_to_check:
                 old_value = getattr(previous_listing, col)
                 new_value = getattr(new_listing, col)
                 if old_value != new_value:
@@ -575,10 +598,18 @@ class ListingChangePipeline(BasePipeline):
                 try:
                     self.psql.cursor.executemany(q, change_items)
                     self.psql.conn.commit()
+
+                    ## UPDATE LISTINGS
                     # convert the new_value to SET clause
                     new_values = {}
                     for change in change_items:
-                        new_values.update({change[3]: change[5]})
+                        field = change[3]
+                        if field in [
+                            "price",
+                            "short_description",
+                            "detail_description",
+                        ]:
+                            new_values.update({field: change[5]})
                     if "price" in new_values and not new_values["price"]:
                         new_values["price"] = -1
                     set_clause = ", ".join([f"{k} = %s" for k in new_values.keys()])
@@ -588,8 +619,26 @@ class ListingChangePipeline(BasePipeline):
                     UPDATE listings_listing SET updated_at=now(), {set_clause}
                     WHERE id='{listing_id}';
                     """
-                    self.psql.cursor.execute(q, list(new_values.values()))
-                    self.psql.conn.commit()
+                    if set_clause != "":
+                        self.psql.cursor.execute(q, list(new_values.values()))
+                        self.psql.conn.commit()
+
+                    ## UPDATE PROPERTY
+                    new_values = {}
+                    for change in change_items:
+                        field = change[3]
+                        if field in ["size_m2", "rooms"]:
+                            new_values.update({field: change[5]})
+                    set_clause = ", ".join([f"{k} = %s" for k in new_values.keys()])
+                    # update the updated_at field on the listings table
+                    listing_id = item["listing_id"]
+                    q = f"""
+                    UPDATE listings_property SET updated_at=now(), {set_clause}
+                    WHERE listing_id='{listing_id}';
+                    """
+                    if set_clause != "":
+                        self.psql.cursor.execute(q, list(new_values.values()))
+                        self.psql.conn.commit()
                 except Exception as err:
                     self.psql.conn.rollback()
                     # Insert error to db

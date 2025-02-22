@@ -12,13 +12,16 @@ from real_estate_scraper.func import str_to_price
 
 def as_float(value):
     if isinstance(value, str) and re.match(r"\d", value):
-        value = value.replace(".", "")
+        if re.search(r"\.[0]+", value):
+            value = value.replace(".", "")
         value = value.replace(",", ".")
         value = value.replace("+", "")
         value = value.replace("m²", "")
         return float(value) if value is not None else None
     elif isinstance(value, int):
         return float(value)
+    elif isinstance(value, float):
+        return value
     return None
 
 
@@ -79,6 +82,7 @@ class ListingItem(scrapy.Item):
         input_processor=MapCompose(str_to_price),
         output_processor=TakeFirst(),
     )
+
 
 class AddressItem(scrapy.Item):
     city = scrapy.Field(

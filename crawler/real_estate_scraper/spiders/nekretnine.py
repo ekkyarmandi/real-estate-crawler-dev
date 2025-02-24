@@ -49,7 +49,7 @@ class NekretnineSpider(BaseSpider):
                 SELECT url
                 FROM listings_listing
                 WHERE city IS NULL AND url LIKE '%nekretnine%'
-                AND status = 'active' LIMIT 1;
+                AND status = 'active';
                 """
             )
         ).fetchall()

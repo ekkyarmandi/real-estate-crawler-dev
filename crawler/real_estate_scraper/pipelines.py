@@ -153,10 +153,6 @@ class SourcesPipeline(BasePipeline):
         except Exception as err:
             self.psql.conn.rollback()
             raise ValueError("Source insertion failed: {0}".format(err))
-        # Send notification via Telegram
-        message = f"Data scraping completed for source: {item['source']['name']}"
-        telegram_url = f"https://api.telegram.org/bot{TELEGRAMBOT_TOKEN}/sendMessage"
-        requests.post(telegram_url, json={"chat_id": 1880154867, "text": message})
         return item
 
 
@@ -391,7 +387,12 @@ class ListingPipeline(BasePipeline):
             raise ValueError("Error on spider close: {0}".format(err))
 
         # queue new listings
-        self.__queue_new_listings(spider)
+        # self.__queue_new_listings(spider)
+
+        # Send notification via Telegram
+        message = f"✅ Data scraping completed for source: {spider.name}"
+        telegram_url = f"https://api.telegram.org/bot{TELEGRAMBOT_TOKEN}/sendMessage"
+        requests.post(telegram_url, json={"chat_id": 1880154867, "text": message})
 
 
 class RawDataPipeline(BasePipeline):

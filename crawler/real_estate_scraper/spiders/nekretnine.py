@@ -1,11 +1,7 @@
 from itemloaders import ItemLoader
-from scrapy.selector import Selector
 import scrapy
 import uuid
-import jmespath
-from decouple import config
 import math
-import json
 
 from real_estate_scraper.items import ListingItem, PropertyItem, AddressItem
 from real_estate_scraper.spiders.base import BaseSpider
@@ -107,17 +103,19 @@ class NekretnineSpider(BaseSpider):
         # address loader
         address_loader = ItemLoader(item=AddressItem(), selector=response)
         address_loader.add_css(
-            "city", "script:contains(adsKeyword)::Text", re=r'location2:\s*"([^"]+)"'
+            "city",
+            "script:contains(adsKeyword)::Text",
+            re=r'"location2":\s*"(.*?)"',
         )
         address_loader.add_css(
             "municipality",
             "script:contains(adsKeyword)::Text",
-            re=r'location3:\s*"([^"]+)"',
+            re=r'"location3":\s*"(.*?)"',
         )
         address_loader.add_css(
             "micro_location",
             "script:contains(adsKeyword)::Text",
-            re=r'location4:\s*"([^"]+)"',
+            re=r'"location4":\s*"(.*?)"',
         )
         address_loader.add_css(
             "latitude", "script:contains(ppMap)::Text", re=r"ppLat\s*=\s*([-\d.]+)"

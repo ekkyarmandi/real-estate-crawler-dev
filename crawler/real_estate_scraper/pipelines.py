@@ -306,7 +306,14 @@ class ListingPipeline(BasePipeline):
             self.db.rollback()
             spider.total_new_listings -= 1
             if not listing_item.get("title"):
-                # TODO: update the listing status to removed
+                q = text(
+                    f"""
+                    UPDATE listings_listing SET status='removed', updated_at=now()
+                    WHERE url='{item["url"]}';
+                    """
+                )
+                self.db.execute(q)
+                self.db.commit()
                 raise DropItem("Listing insertion failed: {0}".format(err))
             # Insert error to db
             db = next(get_db())
@@ -520,6 +527,9 @@ class ListingChangePipeline(BasePipeline):
             ll.url,
             ll.price,
             ll.status,
+            ll.city,
+            ll.municipality,
+            ll.micro_location,
             ll.detail_description,
             ll.short_description,
             lp.size_m2,
@@ -535,6 +545,9 @@ class ListingChangePipeline(BasePipeline):
             "url",
             "price",
             "status",
+            "city",
+            "municipality",
+            "micro_location",
             "detail_description",
             "short_description",
             "size_m2",
@@ -550,6 +563,9 @@ class ListingChangePipeline(BasePipeline):
             new_listing = PreviousListing(
                 price=item["price"],
                 status=item["status"],
+                city=item["address"]["city"],
+                municipality=item["address"]["municipality"],
+                micro_location=item["address"]["micro_location"],
                 short_description=item["short_description"],
                 detail_description=item["detail_description"],
                 size_m2=item["property"]["size_m2"],
@@ -558,6 +574,9 @@ class ListingChangePipeline(BasePipeline):
             # check the changes
             columns_to_check = [
                 "price",
+                "city",
+                "municipality",
+                "micro_location",
                 "short_description",
                 "detail_description",
                 "size_m2",
@@ -606,6 +625,9 @@ class ListingChangePipeline(BasePipeline):
                         field = change[3]
                         if field in [
                             "price",
+                            "city",
+                            "municipality",
+                            "micro_location",
                             "short_description",
                             "detail_description",
                         ]:

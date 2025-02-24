@@ -11,7 +11,7 @@ from real_estate_scraper.func import str_to_price
 
 
 def as_float(value):
-    if isinstance(value, str) and re.match(r"\d", value):
+    if isinstance(value, str) and re.search(r"\d", value):
         if re.search(r"\.[0]+", value):
             value = value.replace(".", "")
         value = value.replace(",", ".")

@@ -23,9 +23,13 @@ import traceback
 import jmespath
 import uuid
 import re
+import requests
+
 from real_estate_scraper.templates.sql.listing import listing_insert_query
 from real_estate_scraper.templates.sql.error import error_insert_query
 from models.property import Property
+
+TELEGRAMBOT_TOKEN = config("TELEGRAMBOT_TOKEN")
 
 
 def keep_url_only(item):
@@ -149,6 +153,10 @@ class SourcesPipeline(BasePipeline):
         except Exception as err:
             self.psql.conn.rollback()
             raise ValueError("Source insertion failed: {0}".format(err))
+        # Send notification via Telegram
+        message = f"Data scraping completed for source: {item['source']['name']}"
+        telegram_url = f"https://api.telegram.org/bot{TELEGRAMBOT_TOKEN}/sendMessage"
+        requests.post(telegram_url, json={"chat_id": 1880154867, "text": message})
         return item
 
 

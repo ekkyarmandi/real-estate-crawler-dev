@@ -3,6 +3,9 @@ import scrapy
 import uuid
 import math
 
+from sqlalchemy import text
+
+from real_estate_scraper.database import get_db
 from real_estate_scraper.items import ListingItem, PropertyItem, AddressItem
 from real_estate_scraper.spiders.base import BaseSpider
 
@@ -38,7 +41,19 @@ class NekretnineSpider(BaseSpider):
 
     def parse(self, response):
         # get all listings
-        urls = response.css("div.advert-list h2 a::attr(href)").getall()
+        # urls = response.css("div.advert-list h2 a::attr(href)").getall()
+        db = next(get_db())
+        urls = db.execute(
+            text(
+                """
+                SELECT url
+                FROM listings_listing
+                WHERE city IS NULL AND url LIKE '%nekretnine%'
+                AND status = 'active' LIMIT 1;
+                """
+            )
+        ).fetchall()
+        urls = [url[0] for url in urls]
         for url in urls:
             if url not in self.visited_urls:
                 url = response.urljoin(url)
@@ -56,7 +71,7 @@ class NekretnineSpider(BaseSpider):
         max_page = 500
         for i in range(2, max_page + 1):
             next_url = "https://www.nekretnine.rs/stambeni-objekti/stanovi/izdavanje-prodaja/prodaja/grad/beograd/lista/po-stranici/1/stranica/{}/"
-            yield response.follow(next_url.format(i), callback=self.parse)
+            # yield response.follow(next_url.format(i), callback=self.parse)
 
     def parse_listing(self, response):
         # listing loader

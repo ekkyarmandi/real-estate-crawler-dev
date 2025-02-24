@@ -390,7 +390,7 @@ class ListingPipeline(BasePipeline):
         # self.__queue_new_listings(spider)
 
         # Send notification via Telegram
-        message = f"✅ Data rescraping is completed for source '{spider.name}' in {elapsed_time.total_seconds()} seconds"
+        message = f"✅ Data re-scraping is completed for source '{spider.name}' in {elapsed_time.total_seconds():.2f} seconds"
         telegram_url = f"https://api.telegram.org/bot{TELEGRAMBOT_TOKEN}/sendMessage"
         requests.post(telegram_url, json={"chat_id": 1880154867, "text": message})
 

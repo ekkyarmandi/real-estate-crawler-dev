@@ -14,10 +14,17 @@ def as_float(value):
     if isinstance(value, str) and re.search(r"\d", value):
         if re.search(r"\.[0]+", value):
             value = value.replace(".", "")
+        if "-" in value:
+            value = value.split("-")[0]
         value = value.replace(",", ".")
         value = value.replace("+", "")
         value = value.replace("m²", "")
-        return float(value) if value is not None else None
+        if "ar" in value or "are" in value:
+            value = value.lower().replace("ar", "")
+            value = value.lower().replace("are", "")
+            return float(value) * 100
+        elif value:
+            return float(value)
     elif isinstance(value, int):
         return float(value)
     elif isinstance(value, float):

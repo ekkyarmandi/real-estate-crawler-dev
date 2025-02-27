@@ -34,7 +34,7 @@ class HaloOglasiNekretnineSpider(BaseSpider):
                 SELECT ll.url FROM listings_listing ll
                 JOIN listings_property lp ON lp.listing_id = ll.id
                 WHERE ll.url LIKE '%halooglasi.com%'
-                AND lp.rooms > 10 AND ll.status = 'active';
+                AND lp.rooms > 10 AND status = 'active';
                 """
             )
         ).fetchall()
@@ -209,15 +209,15 @@ class HaloOglasiNekretnineSpider(BaseSpider):
 
             # Check listing ads expiry
             status = "active"
-            expired_text_1 = selector.css("#divExpired1inner span::text").re_first(
-                "Žao nam je, predmet vašeg interesovanja više nije u ponudi"
-            )
-            expired_text_2 = selector.css("div.info-box-expired::text").re_first(
-                "Nažalost, oglas nije pronađen."
-            )
-            if expired_text_1 or expired_text_2:
-                property_data["Title"] = None
-                status = "removed"
+            # expired_text_1 = selector.css("#divExpired1inner span::text").re_first(
+            #     "Žao nam je, predmet vašeg interesovanja više nije u ponudi"
+            # )
+            # expired_text_2 = selector.css("div.info-box-expired::text").re_first(
+            #     "Nažalost, oglas nije pronađen."
+            # )
+            # if expired_text_1 or expired_text_2:
+            #     property_data["Title"] = None
+            #     status = "removed"
 
             yield {
                 "listing_id": str(uuid.uuid4()),

@@ -5,11 +5,13 @@ import re
 import uuid
 import jmespath
 import traceback
+from sqlalchemy import text
 
 from real_estate_scraper.func import clean_double_quotes
 from real_estate_scraper.database import get_db
 from real_estate_scraper.spiders.base import BaseSpider
 from real_estate_scraper.items import PropertyItem
+from real_estate_scraper.database import get_db
 from scrapy.loader import ItemLoader
 from models.error import Error
 
@@ -21,32 +23,31 @@ class A4zidaSpider(BaseSpider):
 
     def parse(self, response):
         # find property urls
-        urls = response.css("div:has(button):has(a) > a:has(p)::attr(href)").getall()
-        urls = list(dict.fromkeys((urls)))
+        # urls = response.css("div:has(button):has(a) > a:has(p)::attr(href)").getall()
+        # urls = list(dict.fromkeys((urls)))
+        urls = []
+        db = next(get_db())
+        urls = db.execute(
+            text(
+                """
+                SELECT ll.url FROM listings_listing ll
+                JOIN listings_property lp ON lp.listing_id = ll.id
+                WHERE ll.url LIKE '%4zida.rs%'
+                AND (ll.city IS NULL OR lp.size_m2 IS NULL)
+                AND ll.status = 'active';
+                """
+            )
+        ).fetchall()
+        urls = [url[0] for url in urls]
         for url in urls:
-            if url not in self.visited_urls:
-                url = response.urljoin(url)
-                self.visited_urls.append(url)
-                yield response.follow(
-                    url,
-                    callback=self.parse_detail,
-                    errback=self.handle_error,
-                )
-                # endpoint = "https://scraper-api.smartproxy.com/v2/scrape"
-                # headers = {
-                #     "accept": "application/json",
-                #     "content-type": "application/json",
-                #     "authorization": "Basic " + config("SMARTPROXY_API_KEY"),
-                # }
-                # yield scrapy.Request(
-                #     url=endpoint,
-                #     method="POST",
-                #     headers=headers,
-                #     body=json.dumps({"url": url}),
-                #     callback=self.parse_detail,
-                #     errback=self.handle_error,
-                #     meta={"origin_url": url},
-                # )
+            # if url not in self.visited_urls:
+            # url = response.urljoin(url)
+            # self.visited_urls.append(url)
+            yield response.follow(
+                url,
+                callback=self.parse_detail,
+                errback=self.handle_error,
+            )
 
         # find total properties listed in the page, then create pagination
         item_per_page = 0
@@ -62,9 +63,9 @@ class A4zidaSpider(BaseSpider):
             # create pagination
             total_pages = math.ceil(total_counts / item_per_page)
             self.total_pages = total_pages
-            for i in range(2, 101):
+            for i in range(2, 3):
                 next_url = response.url.split("?")[0] + "?strana=" + str(i)
-                yield response.follow(next_url)
+                # yield response.follow(next_url)
 
     def parse_detail(self, response):
         try:
@@ -94,6 +95,8 @@ class A4zidaSpider(BaseSpider):
                 address = list(map(str.strip, address))
                 if len(address) > 2:
                     z, y, x = address[:3]
+                elif len(address) > 1:
+                    y, x = address[:2]
             page = dict(
                 title=response.css("h1 ::Text").get(),
                 price=response.css("p[test-data=ad-price] ::Text").re_first(

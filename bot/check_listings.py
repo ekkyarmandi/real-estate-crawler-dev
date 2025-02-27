@@ -12,8 +12,7 @@ urls = db.execute(
         """
         SELECT ll.url FROM listings_listing ll
         JOIN listings_property lp ON ll.id = lp.listing_id
-        WHERE ll.status = 'active'
-        AND lp.size_m2 IS NULL
+        WHERE ll.status = 'active' AND lp.rooms > 10
         AND ll.url LIKE '%halooglasi.com%';
         """
     )
@@ -23,19 +22,7 @@ urls = [item[0] for item in urls]
 # if the status code is not 200, mark status as 'removed'
 for url in tqdm(urls):
     response = requests.get(url)
-    if response.status_code == 200:
-        selector = Selector(text=response.text)
-        expired_text = selector.css("div.info-box-expired::text").re_first(
-            "Nažalost, oglas nije pronađen."
-        )
-        if expired_text:
-            db.execute(
-                text(
-                    f"UPDATE listings_listing SET status = 'removed', updated_at=now() WHERE url='{url}'"
-                )
-            )
-            db.commit()
-    else:
+    if response.status_code != 200:
         db.execute(
             text(
                 f"UPDATE listings_listing SET status = 'removed', updated_at=now() WHERE url='{url}'"

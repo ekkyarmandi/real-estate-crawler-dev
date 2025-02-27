@@ -209,11 +209,13 @@ class HaloOglasiNekretnineSpider(BaseSpider):
 
             # Check listing ads expiry
             status = "active"
-            expired_text = selector.css("#divExpired1inner span::text").get()
-            if (
-                expired_text
-                == "Žao nam je, predmet vašeg interesovanja više nije u ponudi"
-            ):
+            expired_text_1 = selector.css("#divExpired1inner span::text").re_first(
+                "Žao nam je, predmet vašeg interesovanja više nije u ponudi"
+            )
+            expired_text_2 = selector.css("div.info-box-expired::text").re_first(
+                "Nažalost, oglas nije pronađen."
+            )
+            if expired_text_1 or expired_text_2:
                 property_data["Title"] = None
                 status = "removed"
 

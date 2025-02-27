@@ -34,7 +34,7 @@ class HaloOglasiNekretnineSpider(BaseSpider):
                 SELECT ll.url FROM listings_listing ll
                 JOIN listings_property lp ON lp.listing_id = ll.id
                 WHERE ll.url LIKE '%halooglasi.com%'
-                AND lp.size_m2 IS NULL AND ll.status = 'active';
+                AND lp.rooms > 10 AND ll.status = 'active';
                 """
             )
         ).fetchall()

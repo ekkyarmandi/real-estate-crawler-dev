@@ -208,12 +208,14 @@ class HaloOglasiNekretnineSpider(BaseSpider):
                 }
 
             # Check listing ads expiry
+            status = "active"
             expired_text = selector.css("#divExpired1inner span::text").get()
             if (
                 expired_text
                 == "Žao nam je, predmet vašeg interesovanja više nije u ponudi"
             ):
                 property_data["Title"] = None
+                status = "removed"
 
             yield {
                 "listing_id": str(uuid.uuid4()),
@@ -226,7 +228,7 @@ class HaloOglasiNekretnineSpider(BaseSpider):
                 "price_currency": jmespath.search(
                     "OtherFields.cena_d_unit_s", property_data
                 ),
-                "status": "active",  # if the property is not listed anymore put it as removed
+                "status": status,  # if the property is not listed anymore put it as removed
                 # "agency_fee": None,
                 # "agency_fee_unit": property_data["OtherFields"][
                 #     "agencijska_sifra_oglasa_s"

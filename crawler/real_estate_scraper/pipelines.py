@@ -219,7 +219,7 @@ class ListingPipeline(BasePipeline):
         super().__init__()
 
     def __queue_new_listings(self, spider):
-        today = dt.now().strftime(r"%Y-%m-01")
+        today = dt.now().strftime(r"%Y-%m-%d")
         users = self.db.query(User).all()
         # query new listings
         cols = [
@@ -256,9 +256,19 @@ class ListingPipeline(BasePipeline):
         listings = [CustomListing(**item) for item in listings]
         # send all the listings via telegram bot as notifications
         for listing in listings:
+            # Query all users who already have this listing in their queue
+            excluded_users = (
+                self.db.query(Queue.user_id)
+                .filter(Queue.listing_id == listing.id)
+                .all()
+            )
+            excluded_user_ids = [user_id[0] for user_id in excluded_users]
             for user in users:
+                # Skip users who already have this listing in their queue
+                if user.id in excluded_user_ids:
+                    continue
+                # Only validate settings for users not in the exclusion list
                 if listing.validate_settings(user.settings):
-                    # create queue
                     queue = Queue(listing_id=listing.id, user_id=user.id)
                     try:
                         self.db.add(queue)

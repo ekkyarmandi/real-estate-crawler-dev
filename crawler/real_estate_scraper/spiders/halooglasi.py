@@ -322,11 +322,14 @@ class HaloOglasiNekretnineSpider(BaseSpider):
         script = response.css(
             "script:contains('QuidditaEnvironment.CurrentClassified')::Text"
         ).get()
-        raw_data = re.search(
-            r"QuidditaEnvironment.CurrentClassified={(.*?)};", script, re.IGNORECASE
-        ).group(1)
-        data = "{" + raw_data + "}"
-        return data
+        if script:
+            raw_data = re.search(
+                r"QuidditaEnvironment.CurrentClassified={(.*?)};", script, re.IGNORECASE
+            ).group(1)
+            data = "{" + raw_data + "}"
+            return data
+        else:
+            return "{}"
 
     @json_finder
     def find_agency_data(self, response):
@@ -334,8 +337,13 @@ class HaloOglasiNekretnineSpider(BaseSpider):
         script = response.css(
             "script:contains('QuidditaEnvironment.CurrentContactData')::Text"
         ).get()
-        raw_data = re.search(
-            r"QuidditaEnvironment.CurrentContactData={(.*?)};", script, re.IGNORECASE
-        ).group(1)
-        data = "{" + raw_data + "}"
-        return data
+        if script:
+            raw_data = re.search(
+                r"QuidditaEnvironment.CurrentContactData={(.*?)};",
+                script,
+                re.IGNORECASE,
+            ).group(1)
+            data = "{" + raw_data + "}"
+            return data
+        else:
+            return "{}"

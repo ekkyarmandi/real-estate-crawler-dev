@@ -64,6 +64,7 @@ def create_queue():
         FROM listings_listing as ll
         JOIN listings_property as lp ON lp.listing_id = ll.id
         WHERE ll.price > 0 AND lp.size_m2 > 0 AND ll.created_at >= '{today}'
+        AND ll.status = 'active'
         ORDER BY ll.created_at DESC;
         """
     )

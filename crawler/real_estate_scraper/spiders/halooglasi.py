@@ -212,6 +212,18 @@ class HaloOglasiNekretnineSpider(BaseSpider):
                     "active_since": None,
                 }
 
+            # Check listing ads expiry
+            status = "active"
+            expired_text_1 = selector.css("#divExpired1inner span::text").re_first(
+                "Žao nam je, predmet vašeg interesovanja više nije u ponudi"
+            )
+            expired_text_2 = selector.css("div.info-box-expired::text").re_first(
+                "Nažalost, oglas nije pronađen."
+            )
+            if expired_text_1 or expired_text_2:
+                property_data["Title"] = None
+                status = "removed"
+
             yield {
                 "listing_id": str(uuid.uuid4()),
                 "source_id": property_data.get("Id"),
@@ -223,7 +235,7 @@ class HaloOglasiNekretnineSpider(BaseSpider):
                 "price_currency": jmespath.search(
                     "OtherFields.cena_d_unit_s", property_data
                 ),
-                "status": "active",  # if the property is not listed anymore put it as removed
+                "status": status,  # if the property is not listed anymore put it as removed
                 # "agency_fee": None,
                 # "agency_fee_unit": property_data["OtherFields"][
                 #     "agencijska_sifra_oglasa_s"

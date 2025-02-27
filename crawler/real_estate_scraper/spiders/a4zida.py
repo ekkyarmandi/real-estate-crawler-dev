@@ -33,8 +33,7 @@ class A4zidaSpider(BaseSpider):
                 SELECT ll.url FROM listings_listing ll
                 JOIN listings_property lp ON lp.listing_id = ll.id
                 WHERE ll.url LIKE '%4zida.rs%'
-                AND (ll.city IS NULL OR lp.size_m2 IS NULL)
-                AND ll.status = 'active';
+                AND ll.city IS NULL AND ll.status = 'active';
                 """
             )
         ).fetchall()
@@ -94,9 +93,9 @@ class A4zidaSpider(BaseSpider):
                 address = address.split(",")
                 address = list(map(str.strip, address))
                 if len(address) > 2:
-                    z, y, x = address[:3]
+                    x, y, z = address[:3]
                 elif len(address) > 1:
-                    y, x = address[:2]
+                    y, z = address[:2]
             page = dict(
                 title=response.css("h1 ::Text").get(),
                 price=response.css("p[test-data=ad-price] ::Text").re_first(

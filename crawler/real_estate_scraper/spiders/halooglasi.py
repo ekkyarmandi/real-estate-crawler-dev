@@ -207,6 +207,14 @@ class HaloOglasiNekretnineSpider(BaseSpider):
                     "active_since": None,
                 }
 
+            # Check listing ads expiry
+            expired_text = selector.css("#divExpired1inner span::text").get()
+            if (
+                expired_text
+                == "Žao nam je, predmet vašeg interesovanja više nije u ponudi"
+            ):
+                property_data["Title"] = None
+
             yield {
                 "listing_id": str(uuid.uuid4()),
                 "source_id": property_data.get("Id"),

@@ -74,7 +74,7 @@ class NekretnineSpider(BaseSpider):
         # max_page = 10
         for i in range(2, self.total_pages + 1):
             next_url = "https://www.nekretnine.rs/stambeni-objekti/stanovi/izdavanje-prodaja/prodaja/grad/beograd/lista/po-stranici/1/stranica/{}/"
-            yield response.follow(next_url.format(i), callback=self.parse)
+            # yield response.follow(next_url.format(i), callback=self.parse)
 
     def parse_listing(self, response):
         # listing loader

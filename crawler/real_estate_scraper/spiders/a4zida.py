@@ -33,7 +33,7 @@ class A4zidaSpider(BaseSpider):
                 SELECT ll.url FROM listings_listing ll
                 JOIN listings_property lp ON lp.listing_id = ll.id
                 WHERE ll.url LIKE '%4zida.rs%'
-                AND ll.city IS NULL AND ll.status = 'active';
+                AND lp.size_m2 > 1000 AND ll.status = 'active';
                 """
             )
         ).fetchall()

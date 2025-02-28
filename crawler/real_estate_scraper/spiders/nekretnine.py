@@ -2,9 +2,11 @@ from itemloaders import ItemLoader
 import scrapy
 import uuid
 import math
+from sqlalchemy import text
 
 from real_estate_scraper.items import ListingItem, PropertyItem, AddressItem
 from real_estate_scraper.spiders.base import BaseSpider
+from real_estate_scraper.database import get_db
 
 
 class NekretnineSpider(BaseSpider):
@@ -38,14 +40,29 @@ class NekretnineSpider(BaseSpider):
 
     def parse(self, response):
         # get all listings
-        urls = response.css("div.advert-list h2 a::attr(href)").getall()
+        # urls = response.css("div.advert-list h2 a::attr(href)").getall()
+        urls = []
+        db = next(get_db())
+        urls = db.execute(
+            text(
+                """
+                SELECT ll.url FROM listings_listing ll
+                JOIN listings_property lp ON lp.listing_id = ll.id
+                WHERE ll.url LIKE '%nekretnine.rs%'
+                AND lp.size_m2 > 1000 AND ll.status = 'active';
+                """
+            )
+        ).fetchall()
+        urls = [url[0] for url in urls]
         for url in urls:
-            if url not in self.visited_urls:
-                url = response.urljoin(url)
-                self.visited_urls.append(url)
-                yield response.follow(
-                    url, callback=self.parse_listing, errback=self.handle_error
-                )
+            # if url not in self.visited_urls:
+            #     url = response.urljoin(url)
+            #     self.visited_urls.append(url)
+            yield response.follow(
+                url,
+                callback=self.parse_listing,
+                errback=self.handle_error,
+            )
 
         # paginations
         self.total_listings = response.css(
@@ -53,8 +70,9 @@ class NekretnineSpider(BaseSpider):
         ).re_first(r"\d+")
         self.total_listings = int(self.total_listings)
         self.total_pages = math.ceil(self.total_listings / 20)
-        max_page = 500
-        for i in range(2, max_page + 1):
+        # max_page = 500
+        # max_page = 10
+        for i in range(2, self.total_pages + 1):
             next_url = "https://www.nekretnine.rs/stambeni-objekti/stanovi/izdavanje-prodaja/prodaja/grad/beograd/lista/po-stranici/1/stranica/{}/"
             yield response.follow(next_url.format(i), callback=self.parse)
 
@@ -124,6 +142,7 @@ class NekretnineSpider(BaseSpider):
             "longitude", "script:contains(ppMap)::Text", re=r"ppLng\s*=\s*([-\d.]+)"
         )
         address_item = address_loader.load_item()
+        # TODO: Debug latitude and longitude more than 100
         yield {
             "listing_id": str(uuid.uuid4()),
             "source_id": listing.get("source_id"),

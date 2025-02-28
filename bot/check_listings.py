@@ -22,7 +22,17 @@ urls = [item[0] for item in urls]
 # if the status code is not 200, mark status as 'removed'
 for url in tqdm(urls):
     response = requests.get(url)
-    if response.status_code != 200:
+    if response.status_code == 200:
+        selector = Selector(response.text)
+        title = selector.css("title::text").get()
+        if "Prodaja stanova" in title:
+            db.execute(
+                text(
+                    f"UPDATE listings_listing SET status = 'removed', updated_at=now() WHERE url='{url}'"
+                )
+            )
+            db.commit()
+    else:
         db.execute(
             text(
                 f"UPDATE listings_listing SET status = 'removed', updated_at=now() WHERE url='{url}'"

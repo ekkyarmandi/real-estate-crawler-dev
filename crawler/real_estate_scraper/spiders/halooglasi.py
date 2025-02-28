@@ -5,12 +5,13 @@ import uuid
 import jmespath
 import json
 import traceback
-
+from sqlalchemy import text
 
 from real_estate_scraper.items import PropertyItem
 from real_estate_scraper.database import get_db
 from real_estate_scraper.decorators import json_finder
 from real_estate_scraper.spiders.base import BaseSpider
+from real_estate_scraper.database import get_db
 from models.error import Error
 from scrapy.selector import Selector
 from scrapy.loader import ItemLoader
@@ -25,40 +26,34 @@ class HaloOglasiNekretnineSpider(BaseSpider):
     start_urls = ["https://www.halooglasi.com/nekretnine/prodaja-stanova/beograd"]
 
     def parse(self, response):
-        elements = response.css("div:has(h3.product-title)")
-        for el in elements:
-            url = el.css("h3.product-title a::attr(href)").get()
-            short_description = el.css("p.short-desc::text").get()
-            if url not in self.visited_urls:
-                url = response.urljoin(url)
-                self.visited_urls.append(url)
-                yield response.follow(
-                    url,
-                    callback=self.parse_phonenumber,
-                    errback=self.handle_error,
-                    meta={
-                        "origin_url": url,
-                        "short_description": short_description,
-                    },
-                )
-                # endpoint = "https://scraper-api.smartproxy.com/v2/scrape"
-                # headers = {
-                #     "accept": "application/json",
-                #     "content-type": "application/json",
-                #     "authorization": "Basic " + config("SMARTPROXY_API_KEY"),
-                # }
-                # yield scrapy.Request(
-                #     url=endpoint,
-                #     method="POST",
-                #     headers=headers,
-                #     body=json.dumps({"url": url}),
-                #     callback=self.parse_phonenumber,
-                #     errback=self.handle_error,
-                #     meta={
-                #         "origin_url": url,
-                #         "short_description": short_description,
-                #     },
-                # )
+        # elements = response.css("div:has(h3.product-title)")
+        db = next(get_db())
+        urls = db.execute(
+            text(
+                """
+                SELECT ll.url FROM listings_listing ll
+                JOIN listings_property lp ON lp.listing_id = ll.id
+                WHERE ll.url LIKE '%halooglasi.com%'
+                AND lp.rooms > 10 AND status = 'active';
+                """
+            )
+        ).fetchall()
+        urls = [url[0] for url in urls]
+        for url in urls:
+            # url = el.css("h3.product-title a::attr(href)").get()
+            short_description = None
+            # if url not in self.visited_urls:
+            #     url = response.urljoin(url)
+            # self.visited_urls.append(url)
+            yield response.follow(
+                url,
+                callback=self.parse_phonenumber,
+                errback=self.handle_error,
+                meta={
+                    "origin_url": url,
+                    "short_description": short_description,
+                },
+            )
 
         # paginate
         total_count = 0
@@ -77,7 +72,7 @@ class HaloOglasiNekretnineSpider(BaseSpider):
                     self.is_paginating = True
                     for i in range(2, self.total_pages + 1):
                         next_url = response.url.split("?")[0] + "?page=" + str(i)
-                        yield response.follow(next_url, callback=self.parse)
+                        # yield response.follow(next_url, callback=self.parse)
             except Exception:
                 total_count = 0
 
@@ -214,15 +209,15 @@ class HaloOglasiNekretnineSpider(BaseSpider):
 
             # Check listing ads expiry
             status = "active"
-            expired_text_1 = selector.css("#divExpired1inner span::text").re_first(
-                "Žao nam je, predmet vašeg interesovanja više nije u ponudi"
-            )
-            expired_text_2 = selector.css("div.info-box-expired::text").re_first(
-                "Nažalost, oglas nije pronađen."
-            )
-            if expired_text_1 or expired_text_2:
-                property_data["Title"] = None
-                status = "removed"
+            # expired_text_1 = selector.css("#divExpired1inner span::text").re_first(
+            #     "Žao nam je, predmet vašeg interesovanja više nije u ponudi"
+            # )
+            # expired_text_2 = selector.css("div.info-box-expired::text").re_first(
+            #     "Nažalost, oglas nije pronađen."
+            # )
+            # if expired_text_1 or expired_text_2:
+            #     property_data["Title"] = None
+            #     status = "removed"
 
             yield {
                 "listing_id": str(uuid.uuid4()),
@@ -327,11 +322,14 @@ class HaloOglasiNekretnineSpider(BaseSpider):
         script = response.css(
             "script:contains('QuidditaEnvironment.CurrentClassified')::Text"
         ).get()
-        raw_data = re.search(
-            r"QuidditaEnvironment.CurrentClassified={(.*?)};", script, re.IGNORECASE
-        ).group(1)
-        data = "{" + raw_data + "}"
-        return data
+        if script:
+            raw_data = re.search(
+                r"QuidditaEnvironment.CurrentClassified={(.*?)};", script, re.IGNORECASE
+            ).group(1)
+            data = "{" + raw_data + "}"
+            return data
+        else:
+            return "{}"
 
     @json_finder
     def find_agency_data(self, response):
@@ -339,8 +337,13 @@ class HaloOglasiNekretnineSpider(BaseSpider):
         script = response.css(
             "script:contains('QuidditaEnvironment.CurrentContactData')::Text"
         ).get()
-        raw_data = re.search(
-            r"QuidditaEnvironment.CurrentContactData={(.*?)};", script, re.IGNORECASE
-        ).group(1)
-        data = "{" + raw_data + "}"
-        return data
+        if script:
+            raw_data = re.search(
+                r"QuidditaEnvironment.CurrentContactData={(.*?)};",
+                script,
+                re.IGNORECASE,
+            ).group(1)
+            data = "{" + raw_data + "}"
+            return data
+        else:
+            return "{}"

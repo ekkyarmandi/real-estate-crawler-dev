@@ -38,10 +38,10 @@ async def send_message(chat_id, text):
 def create_queue():
     db = next(get_db())
     today = dt.now().strftime(r"%Y-%m-%d")
-    # users = db.query(User).all()
-    users = [
-        db.query(User).filter(User.id == "7c1c80ae-8634-405e-8e92-9340e42b37c1").first()
-    ]
+    users = db.query(User).all()
+    # users = [
+    #     db.query(User).filter(User.id == "7c1c80ae-8634-405e-8e92-9340e42b37c1").first()
+    # ]
     # query new listings
     cols = [
         "id",

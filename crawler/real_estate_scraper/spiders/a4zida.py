@@ -33,7 +33,7 @@ class A4zidaSpider(BaseSpider):
                 SELECT ll.url FROM listings_listing ll
                 JOIN listings_property lp ON lp.listing_id = ll.id
                 WHERE ll.url LIKE '%4zida.rs%'
-                AND lp.size_m2 > 1000 AND ll.status = 'active';
+                AND lp.rooms is null AND ll.status = 'active';
                 """
             )
         ).fetchall()
@@ -148,7 +148,7 @@ class A4zidaSpider(BaseSpider):
             )
             ploader.add_css(
                 "rooms",
-                "strong:contains('rooms'),strong:contains('sobe')",
+                "strong:contains('rooms'),strong:contains('soba')",
                 re=r"[0-9.,]+",
             )
             pitem = dict(ploader.load_item())

@@ -37,8 +37,11 @@ async def send_message(chat_id, text):
 
 def create_queue():
     db = next(get_db())
-    today = dt.now().strftime(r"%Y-%m-01")
+    today = dt.now().strftime(r"%Y-%m-%d")
     users = db.query(User).all()
+    # users = [
+    #     db.query(User).filter(User.id == "7c1c80ae-8634-405e-8e92-9340e42b37c1").first()
+    # ]
     # query new listings
     cols = [
         "id",
@@ -64,6 +67,7 @@ def create_queue():
         FROM listings_listing as ll
         JOIN listings_property as lp ON lp.listing_id = ll.id
         WHERE ll.price > 0 AND lp.size_m2 > 0 AND ll.created_at >= '{today}'
+        AND ll.status = 'active' AND ll.url LIKE '%halooglasi.com%'
         ORDER BY ll.created_at DESC;
         """
     )
@@ -74,11 +78,10 @@ def create_queue():
     listings = [CustomListing(**item) for item in listings]
     # send all the listings via telegram bot as notifications
     for user in users:
-        user_queues = db.query(Queue).filter(Queue.user_id == user.id).all()
-        user_queues = [queue.listing_id for queue in user_queues]
-        new_listings = [l for l in listings if l.id not in user_queues]
-        for l in tqdm(new_listings, desc="Adding to queue table"):
-            if l.validate_settings(user.settings):
+        user_queues = db.query(Queue.listing_id).filter(Queue.user_id == user.id).all()
+        user_queues = [u[0] for u in user_queues]
+        for l in tqdm(listings, desc="Adding to queue table"):
+            if l.id not in user_queues and l.validate_settings(user.settings):
                 # create queue
                 queue = Queue(listing_id=l.id, user_id=user.id)
                 try:

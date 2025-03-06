@@ -12,7 +12,7 @@ from real_estate_scraper.func import str_to_price
 
 def as_float(value):
     if isinstance(value, str) and re.search(r"\d", value):
-        if re.search(r"\.[0]+", value):
+        if re.search(r"\.[0]{3,}", value):
             value = value.replace(".", "")
         if "-" in value:
             value = value.split("-")[0]
